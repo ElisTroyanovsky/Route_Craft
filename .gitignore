@@ -3,6 +3,8 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 .kotlin
+.idea/
+*.iml
 
 ### Eclipse ###
 .apt_generated
@@ -28,3 +30,16 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# Secrets / local config
+application.properties
+application.yml
+config.properties
+
+# Logs
+*.log
