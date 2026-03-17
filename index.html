@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Craft - Setup</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; }
+        #sidebar { width: 350px; background: #f8f9fa; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; overflow-y: auto; }
+        #map { flex-grow: 1; height: 100%; background-color: #e5e3df; }
+        h2 { margin-top: 0; color: #333; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        .input-group { display: flex; gap: 10px; }
+        input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { flex: 1; padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; color: white; transition: 0.2s; }
+
+        #btnConfirmTrucks { background: #6c757d; flex: 0.5; }
+        #btnConfirmTrucks.confirmed { background: #28a745; }
+
+        #btnHub { background: #dc3545; }
+        #btnHub.active { background: #a71d2a; box-shadow: inset 0 3px 5px rgba(0,0,0,0.2); }
+        #btnPoints { background: #007bff; }
+        #btnPoints.active { background: #0056b3; box-shadow: inset 0 3px 5px rgba(0,0,0,0.2); }
+        #btnSubmit { background: #28a745; width: 100%; margin-top: 20px; padding: 12px; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #e9ecef; }
+        .hub-row { font-weight: bold; color: #dc3545; background-color: #ffe6e6; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>Route Craft Setup</h2>
+
+    <div class="control-group">
+        <label>Number of Trucks:</label>
+        <div class="input-group">
+            <input type="number" id="truckCount" value="3" min="1" max="50">
+            <button id="btnConfirmTrucks" onclick="toggleTruckConfirmation()">Confirm</button>
+        </div>
+    </div>
+
+    <label>Map Click Mode:</label>
+    <div class="btn-group">
+        <button id="btnHub" class="active" onclick="setMode('hub')">Set Hub</button>
+        <button id="btnPoints" onclick="setMode('points')">Set Delivery Points</button>
+    </div>
+
+    <label>Locations List:</label>
+    <table>
+        <thead>
+        <tr>
+            <th>Type / ID</th>
+            <th>Lat</th>
+            <th>Lng</th>
+        </tr>
+        </thead>
+        <tbody id="locationsTable">
+        </tbody>
+    </table>
+
+    <button id="btnSubmit" onclick="sendToAlgorithm()">Run Algorithm</button>
+</div>
+
+<div id="map"></div>
+
+<script src="config.js"></script>
+
+<script>
+    // 2. ДИНАМИЧЕСКИ ЗАГРУЖАЕМ КАРТУ ИСПОЛЬЗУЯ КЛЮЧ ИЗ КОНФИГА
+    function loadGoogleMaps() {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&callback=initMap`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    }
+
+    // Запускаем загрузку скрипта при открытии страницы
+    window.onload = loadGoogleMaps;
+
+    // --- ОСТАЛЬНОЙ ТВОЙ КОД БЕЗ ИЗМЕНЕНИЙ ---
+    let map;
+    let mode = 'hub';
+
+    let hubMarker = null;
+    let hubData = null;
+
+    let pointMarkers = [];
+    let pointsData = [];
+    let pointCounter = 1;
+
+    let trucksConfirmed = false;
+    let finalTruckCount = 3;
+
+    let directionsRenderers = [];
+    const colors = ['#FF0000', '#0000FF', '#008000', '#FFA500', '#800080', '#00CED1', '#FF1493'];
+    let directionsService;
+
+    function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+            center: { lat: 32.0853, lng: 34.7818 },
+            zoom: 12,
+        });
+
+        directionsService = new google.maps.DirectionsService();
+
+        map.addListener("click", (e) => {
+            placeMarker(e.latLng);
+        });
+    }
+
+    function toggleTruckConfirmation() {
+        const input = document.getElementById('truckCount');
+        const btn = document.getElementById('btnConfirmTrucks');
+
+        if (!trucksConfirmed) {
+            finalTruckCount = parseInt(input.value);
+            input.disabled = true;
+            btn.innerText = "Edit";
+            btn.classList.add("confirmed");
+            trucksConfirmed = true;
+        } else {
+            input.disabled = false;
+            btn.innerText = "Confirm";
+            btn.classList.remove("confirmed");
+            trucksConfirmed = false;
+        }
+    }
+
+    function setMode(newMode) {
+        mode = newMode;
+        document.getElementById('btnHub').classList.remove('active');
+        document.getElementById('btnPoints').classList.remove('active');
+
+        if (mode === 'hub') document.getElementById('btnHub').classList.add('active');
+        if (mode === 'points') document.getElementById('btnPoints').classList.add('active');
+    }
+
+    function placeMarker(latLng) {
+        if (mode === 'hub') {
+            if (hubMarker) hubMarker.setMap(null);
+
+            hubMarker = new google.maps.Marker({
+                position: latLng,
+                map: map,
+                title: "HUB",
+                icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+            });
+
+            hubData = { lat: latLng.lat().toFixed(5), lng: latLng.lng().toFixed(5) };
+        }
+        else if (mode === 'points') {
+            let marker = new google.maps.Marker({
+                position: latLng,
+                map: map,
+                title: "Store_" + pointCounter,
+                icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+            });
+
+            pointMarkers.push(marker);
+            pointsData.push({ id: "Store_" + pointCounter, lat: latLng.lat().toFixed(5), lng: latLng.lng().toFixed(5) });
+            pointCounter++;
+        }
+
+        updateTable();
+    }
+
+    function updateTable() {
+        const tbody = document.getElementById('locationsTable');
+        tbody.innerHTML = '';
+
+        if (hubData) {
+            tbody.innerHTML += `
+                    <tr class="hub-row">
+                        <td>HUB</td>
+                        <td>${hubData.lat}</td>
+                        <td>${hubData.lng}</td>
+                    </tr>
+                `;
+        }
+
+        pointsData.forEach(p => {
+            tbody.innerHTML += `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.lat}</td>
+                        <td>${p.lng}</td>
+                    </tr>
+                `;
+        });
+    }
+
+    function sendToAlgorithm() {
+        if (!hubData) { alert("Please set a HUB!"); return; }
+        if (pointsData.length === 0) { alert("Please add delivery points!"); return; }
+        if (!trucksConfirmed) { alert("Please confirm trucks!"); return; }
+
+        const requestData = { trucks: finalTruckCount, hub: hubData, locations: pointsData };
+        document.getElementById('btnSubmit').innerText = "⏳ Processing...";
+
+        fetch('http://localhost:8080/api/optimize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('btnSubmit').innerText = "Run Algorithm";
+
+                if (data.status === 'success') {
+                    directionsRenderers.forEach(renderer => renderer.setMap(null));
+                    directionsRenderers = [];
+
+                    data.routes.forEach((route, index) => {
+                        if (route.length === 0) return;
+
+                        const waypoints = route.map(p => ({
+                            location: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) },
+                            stopover: true
+                        }));
+
+                        const request = {
+                            origin: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
+                            destination: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
+                            waypoints: waypoints,
+                            travelMode: google.maps.TravelMode.DRIVING,
+                            optimizeWaypoints: false
+                        };
+
+                        directionsService.route(request, (result, status) => {
+                            if (status === 'OK') {
+                                const renderer = new google.maps.DirectionsRenderer({
+                                    map: map,
+                                    suppressMarkers: true,
+                                    polylineOptions: {
+                                        strokeColor: colors[index % colors.length],
+                                        strokeOpacity: 0.8,
+                                        strokeWeight: 5
+                                    }
+                                });
+                                renderer.setDirections(result);
+                                directionsRenderers.push(renderer);
+                            } else {
+                                console.error("Не удалось проложить маршрут по дорогам: " + status);
+                            }
+                        });
+                    });
+
+                    console.log("Routes drawn successfully along the roads!");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("Connection failed.");
+                document.getElementById('btnSubmit').innerText = "Run Algorithm";
+            });
+    }
+</script>
+</body>
+</html>
