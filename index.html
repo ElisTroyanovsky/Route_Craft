@@ -3,169 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Route Craft - Setup</title>
+    <title>Route Craft - Professional Setup</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; }
-        #sidebar { width: 350px; background: #f8f9fa; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; overflow-y: auto; }
-        #map { flex-grow: 1; height: 100%; background-color: #e5e3df; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 400px; background: #f8f9fa; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; overflow-y: auto; }
+        #map-container { flex-grow: 1; position: relative; height: 100%; }
+        #map { height: 100%; width: 100%; }
+
+        /* Поле поиска над картой */
+        #pac-input {
+            position: absolute; top: 10px; left: 10px; z-index: 5;
+            background-color: #fff; width: 300px; padding: 10px 15px;
+            border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            font-size: 14px; outline: none;
+        }
+
         h2 { margin-top: 0; color: #333; }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        .input-group { display: flex; gap: 10px; }
-        input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        button { flex: 1; padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; color: white; transition: 0.2s; }
+        .control-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        label { display: block; font-weight: bold; margin-bottom: 10px; font-size: 14px; }
 
-        #btnConfirmTrucks { background: #6c757d; flex: 0.5; }
-        #btnConfirmTrucks.confirmed { background: #28a745; }
+        /* Кнопки */
+        .btn-group { display: flex; flex-direction: column; gap: 10px; }
+        button { padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; color: white; transition: 0.2s; }
 
-        #btnHub { background: #dc3545; }
-        #btnHub.active { background: #a71d2a; box-shadow: inset 0 3px 5px rgba(0,0,0,0.2); }
-        #btnPoints { background: #007bff; }
-        #btnPoints.active { background: #0056b3; box-shadow: inset 0 3px 5px rgba(0,0,0,0.2); }
-        #btnSubmit { background: #28a745; width: 100%; margin-top: 20px; padding: 12px; font-size: 16px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .btn-add { background: #007bff; }
+        .btn-add:hover { background: #0056b3; }
+        .btn-add.active { background: #ffc107; color: #000; box-shadow: 0 0 10px rgba(255,193,7,0.5); }
+
+        .btn-hub { background: #dc3545; }
+        .btn-hub.active { border: 2px solid #000; }
+
+        #btnSubmit { background: #28a745; width: 100%; padding: 15px; font-size: 16px; margin-top: 20px; }
+
+        /* Таблица */
+        .table-container { margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #e9ecef; }
-        .hub-row { font-weight: bold; color: #dc3545; background-color: #ffe6e6; }
+        th { background-color: #f1f3f5; }
+        .btn-delete { background: none; color: #dc3545; border: none; font-size: 16px; cursor: pointer; font-weight: bold; padding: 0 5px; }
+        .btn-delete:hover { color: #a71d2a; }
+
+        /* Логи и Статистика */
+        #statsPanel { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #28a745; border-radius: 4px; display: none; }
+        #log-container { margin-top: 15px; padding: 10px; background: #1e1e1e; border-radius: 5px; display: none; color: #00FF00; }
+        #log-list { font-family: monospace; font-size: 11px; list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h2>Route Craft Setup</h2>
+    <h2>Route Craft</h2>
 
     <div class="control-group">
-        <label>Number of Trucks:</label>
-        <div class="input-group">
-            <input type="number" id="truckCount" value="3" min="1" max="50">
-            <button id="btnConfirmTrucks" onclick="toggleTruckConfirmation()">Confirm</button>
+        <label>Configuration:</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span>Trucks:</span>
+            <input type="number" id="truckCount" value="3" style="width: 60px; padding: 5px;">
         </div>
     </div>
 
-    <label>Map Click Mode:</label>
-    <div class="btn-group">
-        <button id="btnHub" class="active" onclick="setMode('hub')">Set Hub</button>
-        <button id="btnPoints" onclick="setMode('points')">Set Delivery Points</button>
+    <div class="control-group">
+        <label>Add Locations:</label>
+        <div class="btn-group">
+            <button id="btnHub" class="btn-hub" onclick="setMode('hub')">📍 Set Logistic Hub</button>
+            <button id="btnAddPoint" class="btn-add" onclick="setMode('points')">✚ Add Delivery Point</button>
+        </div>
+        <p id="mode-status" style="font-size: 11px; color: #666; margin-top: 10px;">Click on map or use search box to add.</p>
     </div>
 
-    <label>Locations List:</label>
-    <table>
-        <thead>
-        <tr>
-            <th>Type / ID</th>
-            <th>Lat</th>
-            <th>Lng</th>
-        </tr>
-        </thead>
-        <tbody id="locationsTable">
-        </tbody>
-    </table>
+    <div class="table-container">
+        <label>Stops List:</label>
+        <table>
+            <thead>
+            <tr>
+                <th>Name / Address</th>
+                <th style="width: 30px;"></th>
+            </tr>
+            </thead>
+            <tbody id="locationsTable"></tbody>
+        </table>
+    </div>
 
-    <button id="btnSubmit" onclick="sendToAlgorithm()">Run Algorithm</button>
+    <button id="btnSubmit" onclick="sendToAlgorithm()">🚀 Run Super-Hybrid Optimization</button>
+
+    <div id="statsPanel">
+        <h3 style="margin-top: 0; font-size: 14px;">Results</h3>
+        <div>Improvement: <span id="improvement">0</span>%</div>
+        <div style="font-size: 11px; color: #666;">(GA: <span id="gaDist">0</span> km)</div>
+    </div>
+
+    <div id="log-container">
+        <ul id="log-list"></ul>
+    </div>
 </div>
 
-<div id="map"></div>
+<div id="map-container">
+    <input id="pac-input" type="text" placeholder="Search for an address...">
+    <div id="map"></div>
+</div>
 
 <script src="config.js"></script>
 
 <script>
-    // 2. ДИНАМИЧЕСКИ ЗАГРУЖАЕМ КАРТУ ИСПОЛЬЗУЯ КЛЮЧ ИЗ КОНФИГА
+    // Загрузка Google Maps с поддержкой поиска (Places) и на английском
     function loadGoogleMaps() {
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&callback=initMap`;
-        script.async = true;
-        script.defer = true;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places&language=en&callback=initMap`;
+        script.async = true; script.defer = true;
         document.head.appendChild(script);
     }
-
-    // Запускаем загрузку скрипта при открытии страницы
     window.onload = loadGoogleMaps;
 
-    // --- ОСТАЛЬНОЙ ТВОЙ КОД БЕЗ ИЗМЕНЕНИЙ ---
-    let map;
-    let mode = 'hub';
+    let map, geocoder, autocomplete;
+    let mode = null; // null, 'hub', 'points'
 
-    let hubMarker = null;
     let hubData = null;
-
+    let hubMarker = null;
+    let pointsData = []; // [{id, lat, lng, address}]
     let pointMarkers = [];
-    let pointsData = [];
-    let pointCounter = 1;
-
-    let trucksConfirmed = false;
-    let finalTruckCount = 3;
-
     let directionsRenderers = [];
-    const colors = ['#FF0000', '#0000FF', '#008000', '#FFA500', '#800080', '#00CED1', '#FF1493'];
-    let directionsService;
 
     function initMap() {
         map = new google.maps.Map(document.getElementById("map"), {
             center: { lat: 32.0853, lng: 34.7818 },
-            zoom: 12,
+            zoom: 13,
+            clickableIcons: false // Отключаем клики по дефолтным иконкам POI
+        });
+        geocoder = new google.maps.Geocoder();
+
+        // Настройка поиска (Autocomplete)
+        const input = document.getElementById("pac-input");
+        autocomplete = new google.maps.places.Autocomplete(input);
+        autocomplete.bindTo("bounds", map);
+
+        autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry) return;
+
+            if (mode) {
+                processNewLocation(place.geometry.location, place.formatted_address);
+            } else {
+                alert("Please select 'Set Hub' or 'Add Delivery Point' first!");
+            }
         });
 
-        directionsService = new google.maps.DirectionsService();
-
+        // Клик по карте
         map.addListener("click", (e) => {
-            placeMarker(e.latLng);
+            if (mode) {
+                // Превращаем координаты в адрес (Reverse Geocoding)
+                geocoder.geocode({ location: e.latLng }, (results, status) => {
+                    if (status === "OK" && results[0]) {
+                        processNewLocation(e.latLng, results[0].formatted_address);
+                    } else {
+                        processNewLocation(e.latLng, `Point at ${e.latLng.lat().toFixed(4)}`);
+                    }
+                });
+            }
         });
-    }
-
-    function toggleTruckConfirmation() {
-        const input = document.getElementById('truckCount');
-        const btn = document.getElementById('btnConfirmTrucks');
-
-        if (!trucksConfirmed) {
-            finalTruckCount = parseInt(input.value);
-            input.disabled = true;
-            btn.innerText = "Edit";
-            btn.classList.add("confirmed");
-            trucksConfirmed = true;
-        } else {
-            input.disabled = false;
-            btn.innerText = "Confirm";
-            btn.classList.remove("confirmed");
-            trucksConfirmed = false;
-        }
     }
 
     function setMode(newMode) {
         mode = newMode;
-        document.getElementById('btnHub').classList.remove('active');
-        document.getElementById('btnPoints').classList.remove('active');
-
+        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
         if (mode === 'hub') document.getElementById('btnHub').classList.add('active');
-        if (mode === 'points') document.getElementById('btnPoints').classList.add('active');
+        if (mode === 'points') document.getElementById('btnAddPoint').classList.add('active');
+        document.getElementById('mode-status').innerText = `Current Mode: Adding ${mode.toUpperCase()}`;
     }
 
-    function placeMarker(latLng) {
+    function processNewLocation(latLng, address) {
         if (mode === 'hub') {
             if (hubMarker) hubMarker.setMap(null);
-
             hubMarker = new google.maps.Marker({
-                position: latLng,
-                map: map,
-                title: "HUB",
-                icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                position: latLng, map: map, label: "H", icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
             });
-
-            hubData = { lat: latLng.lat().toFixed(5), lng: latLng.lng().toFixed(5) };
-        }
-        else if (mode === 'points') {
-            let marker = new google.maps.Marker({
-                position: latLng,
-                map: map,
-                title: "Store_" + pointCounter,
-                icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+            hubData = { id: "HUB", lat: latLng.lat().toFixed(6), lng: latLng.lng().toFixed(6), address: address };
+            mode = null; // Сбрасываем режим после добавления
+        } else if (mode === 'points') {
+            const marker = new google.maps.Marker({
+                position: latLng, map: map, label: (pointsData.length + 1).toString(), icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
             });
-
             pointMarkers.push(marker);
-            pointsData.push({ id: "Store_" + pointCounter, lat: latLng.lat().toFixed(5), lng: latLng.lng().toFixed(5) });
-            pointCounter++;
+            pointsData.push({
+                id: "Store_" + (pointsData.length + 1),
+                lat: latLng.lat().toFixed(6),
+                lng: latLng.lng().toFixed(6),
+                address: address
+            });
+            mode = null; // Сбрасываем режим после добавления ОДНОЙ точки
         }
 
+        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        updateTable();
+        map.panTo(latLng);
+    }
+
+    function deletePoint(index) {
+        pointMarkers[index].setMap(null);
+        pointMarkers.splice(index, 1);
+        pointsData.splice(index, 1);
+        // Перерисовываем метки, чтобы обновить номера
+        pointMarkers.forEach((m, i) => m.setLabel((i+1).toString()));
         updateTable();
     }
 
@@ -175,89 +212,84 @@
 
         if (hubData) {
             tbody.innerHTML += `
-                    <tr class="hub-row">
-                        <td>HUB</td>
-                        <td>${hubData.lat}</td>
-                        <td>${hubData.lng}</td>
-                    </tr>
-                `;
+                <tr style="background: #fff0f0; font-weight: bold;">
+                    <td>🏠 ${hubData.address}</td>
+                    <td></td>
+                </tr>`;
         }
 
-        pointsData.forEach(p => {
+        pointsData.forEach((p, i) => {
             tbody.innerHTML += `
-                    <tr>
-                        <td>${p.id}</td>
-                        <td>${p.lat}</td>
-                        <td>${p.lng}</td>
-                    </tr>
-                `;
+                <tr>
+                    <td>${i+1}. ${p.address}</td>
+                    <td><button class="btn-delete" onclick="deletePoint(${i})">×</button></td>
+                </tr>`;
         });
     }
 
+    // Твой старый метод отправки на бэкенд (подправленный под новые данные)
     function sendToAlgorithm() {
-        if (!hubData) { alert("Please set a HUB!"); return; }
-        if (pointsData.length === 0) { alert("Please add delivery points!"); return; }
-        if (!trucksConfirmed) { alert("Please confirm trucks!"); return; }
+        if (!hubData || pointsData.length === 0) { alert("Set Hub and Points!"); return; }
 
-        const requestData = { trucks: finalTruckCount, hub: hubData, locations: pointsData };
-        document.getElementById('btnSubmit').innerText = "⏳ Processing...";
+        const requestData = {
+            trucks: parseInt(document.getElementById('truckCount').value),
+            hub: hubData,
+            locations: pointsData
+        };
+
+        document.getElementById('btnSubmit').innerText = "Processing...";
 
         fetch('http://localhost:8080/api/optimize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestData)
         })
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                document.getElementById('btnSubmit').innerText = "Run Algorithm";
-
+                document.getElementById('btnSubmit').innerText = "🚀 Run Optimization";
                 if (data.status === 'success') {
-                    directionsRenderers.forEach(renderer => renderer.setMap(null));
-                    directionsRenderers = [];
+                    document.getElementById('statsPanel').style.display = 'block';
+                    document.getElementById('gaDist').innerText = data.gaDistance.toFixed(2);
+                    let imp = ((data.greedyDistance - data.gaDistance) / data.greedyDistance) * 100;
+                    document.getElementById('improvement').innerText = Math.max(0, imp).toFixed(2);
 
-                    data.routes.forEach((route, index) => {
-                        if (route.length === 0) return;
+                    // Отрисовка логов
+                    const logList = document.getElementById('log-list');
+                    document.getElementById('log-container').style.display = 'block';
+                    logList.innerHTML = '';
+                    data.log.forEach(line => { logList.innerHTML += `<li>> ${line}</li>`; });
 
-                        const waypoints = route.map(p => ({
-                            location: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) },
-                            stopover: true
-                        }));
-
-                        const request = {
-                            origin: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
-                            destination: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
-                            waypoints: waypoints,
-                            travelMode: google.maps.TravelMode.DRIVING,
-                            optimizeWaypoints: false
-                        };
-
-                        directionsService.route(request, (result, status) => {
-                            if (status === 'OK') {
-                                const renderer = new google.maps.DirectionsRenderer({
-                                    map: map,
-                                    suppressMarkers: true,
-                                    polylineOptions: {
-                                        strokeColor: colors[index % colors.length],
-                                        strokeOpacity: 0.8,
-                                        strokeWeight: 5
-                                    }
-                                });
-                                renderer.setDirections(result);
-                                directionsRenderers.push(renderer);
-                            } else {
-                                console.error("Не удалось проложить маршрут по дорогам: " + status);
-                            }
-                        });
-                    });
-
-                    console.log("Routes drawn successfully along the roads!");
+                    // Отрисовка маршрутов (твой старый код DirectionsService)
+                    drawRoutes(data.routes);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("Connection failed.");
-                document.getElementById('btnSubmit').innerText = "Run Algorithm";
             });
+    }
+
+    function drawRoutes(routes) {
+        directionsRenderers.forEach(r => r.setMap(null));
+        directionsRenderers = [];
+        const colors = ['#FF0000', '#0000FF', '#008000', '#FFA500', '#800080'];
+        const ds = new google.maps.DirectionsService();
+
+        routes.forEach((route, i) => {
+            if (route.length === 0) return;
+            const waypoints = route.map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+            ds.route({
+                origin: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
+                destination: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
+                waypoints: waypoints,
+                travelMode: 'DRIVING'
+            }, (result, status) => {
+                if (status === 'OK') {
+                    const dr = new google.maps.DirectionsRenderer({
+                        map: map, suppressMarkers: true,
+                        polylineOptions: { strokeColor: colors[i % colors.length], strokeWeight: 5, strokeOpacity: 0.7 }
+                    });
+                    dr.setDirections(result);
+                    directionsRenderers.push(dr);
+                }
+            });
+        });
     }
 </script>
 </body>

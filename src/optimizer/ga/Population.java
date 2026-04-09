@@ -1,13 +1,12 @@
 package optimizer.ga;
 
 import domain.Location;
-import java.util.Arrays;
+import routing.DistanceMatrix;
 import java.util.List;
 
 public class Population {
     RouteDNA[] routes;
 
-    // Создать популяцию
     public Population(int populationSize, boolean initialise, List<Location> locations) {
         routes = new RouteDNA[populationSize];
         if (initialise) {
@@ -31,11 +30,11 @@ public class Population {
         return routes.length;
     }
 
-    // Найти лучшее решение в этой популяции
-    public RouteDNA getFittest(Location depot, int trucks) {
+    // МАГИЯ ЗДЕСЬ: Добавили матрицу
+    public RouteDNA getFittest(Location depot, int trucks, DistanceMatrix matrix) {
         RouteDNA fittest = routes[0];
         for (int i = 1; i < populationSize(); i++) {
-            if (fittest.getFitness(depot, trucks) <= getTour(i).getFitness(depot, trucks)) {
+            if (fittest.getFitness(depot, trucks, matrix) <= getTour(i).getFitness(depot, trucks, matrix)) {
                 fittest = getTour(i);
             }
         }
