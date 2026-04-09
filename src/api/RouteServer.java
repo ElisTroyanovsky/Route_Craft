@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import domain.Location;
 import optimizer.GreedySolver;
+import optimizer.TwoOptOptimizer; // Не забудь, что этот класс должен быть создан
 import optimizer.aco.AntColonyOptimizer;
 import optimizer.ga.GeneticAlgorithm;
 import optimizer.ga.Population;
@@ -15,7 +16,6 @@ import routing.MatrixCache;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +28,7 @@ public class RouteServer {
             server.createContext("/api/optimize", new OptimizeHandler());
             server.setExecutor(null);
             server.start();
-            System.out.println("🚀 Super-Hybrid Server is running on http://localhost:8080");
+            System.out.println("🚀 Super-Hybrid + 2-Opt Server is running on http://localhost:8080");
         } catch (IOException e) {
             System.err.println("Failed to start server: " + e.getMessage());
         }
@@ -37,7 +37,6 @@ public class RouteServer {
     static class OptimizeHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            // Настройка CORS
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
             exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
@@ -62,13 +61,12 @@ public class RouteServer {
                 Location hub = parseHub(jsonBody);
                 List<Location> deliveryPoints = parseLocations(jsonBody);
 
-                // Загружаем реальную дорожную сеть через Google
                 MatrixCache cache = GoogleMapsRoutingService.fetchDistanceMatrix(hub, deliveryPoints);
 
-                // --- 2. СВЕРХГИБРИДНЫЙ ЦИКЛ (The Super-Giant with Global Memory) ---
+                // --- 2. СВЕРХГИБРИДНЫЙ ЦИКЛ ---
                 List<String> log = new ArrayList<>();
 
-// Greedy Baseline
+                // Greedy Baseline
                 List<List<Location>> greedyRes = GreedySolver.solve(hub, deliveryPoints, trucks, cache);
                 double greedyDistance = calculateTotalDistance(hub, greedyRes, cache);
                 log.add("Greedy Baseline: " + String.format("%.2f", greedyDistance) + " km");
@@ -76,29 +74,28 @@ public class RouteServer {
                 AntColonyOptimizer aco = new AntColonyOptimizer(hub, deliveryPoints, cache, trucks);
                 GeneticAlgorithm ga = new GeneticAlgorithm(hub, trucks, cache);
 
-// ГЛОБАЛЬНЫЙ РЕКОРДСМЕН
                 RouteDNA globalBestDNA = null;
                 double absoluteMinDist = Double.MAX_VALUE;
 
+                // Твои настройки: 15 циклов
                 for (int cycle = 1; cycle <= 15; cycle++) {
-
-                    // А. ФАЗА МУРАВЬЕВ (ACO)
+                    // А. ФАЗА МУРАВЬЕВ
                     List<RouteDNA> acoElite = new ArrayList<>();
                     for (int i = 0; i < 100; i++) {
                         acoElite = aco.runIteration();
                     }
 
-                    // Б. ФАЗА ГЕНЕТИКИ (GA)
+                    // Б. ФАЗА ГЕНЕТИКИ
                     Population pop = new Population(100, true, deliveryPoints);
                     for (int i = 0; i < Math.min(20, acoElite.size()); i++) {
                         pop.saveTour(i, acoElite.get(i));
                     }
 
-                    // Если у нас уже есть глобальный рекорд, подселяем его в новую популяцию!
                     if (globalBestDNA != null) {
                         pop.saveTour(21, globalBestDNA);
                     }
 
+                    // Твои настройки: 1000 генераций
                     for (int gen = 0; gen < 1000; gen++) {
                         pop = ga.evolvePopulation(pop);
                     }
@@ -106,21 +103,18 @@ public class RouteServer {
                     RouteDNA cycleBest = pop.getFittest(hub, trucks, cache);
                     double cycleDist = cycleBest.getDistance(hub, trucks, cache);
 
-                    // ПРОВЕРКА НА РЕКОРД
                     if (cycleDist < absoluteMinDist) {
                         absoluteMinDist = cycleDist;
                         globalBestDNA = cycleBest;
                         System.out.println("New Global Record: " + absoluteMinDist);
                     }
 
-                    // В. ОБРАТНАЯ СВЯЗЬ: Усиливаем феромоны ТОЛЬКО для глобально лучшего
                     aco.reinforcePheromones(globalBestDNA);
-
                     log.add("Cycle " + cycle + " | Current: " + String.format("%.2f", cycleDist) + " km");
                 }
 
-// --- 3. ОТПРАВЛЯЕМ ИМЕННО ГЛОБАЛЬНЫЙ РЕКОРД ---
-                sendSuccessResponse(exchange, globalBestDNA, trucks, greedyDistance, log, cache);
+                // --- 3. ОТПРАВЛЯЕМ РЕЗУЛЬТАТ (С финальной 2-Opt полировкой) ---
+                sendSuccessResponse(exchange, globalBestDNA, trucks, greedyDistance, log, cache, hub);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -128,12 +122,65 @@ public class RouteServer {
             }
         }
 
-        // Вспомогательные методы
+        private void sendSuccessResponse(HttpExchange exchange, RouteDNA best, int trucks, double greedyDist, List<String> log, MatrixCache cache, Location hub) throws IOException {
+            // Разрезаем общую последовательность на отдельные маршруты
+            List<List<Location>> optimizedRoutes = new ArrayList<>();
+            int stops = (int) Math.ceil((double)best.tourSize() / trucks);
+
+            for (int t = 0; t < trucks; t++) {
+                int start = t * stops;
+                int end = Math.min(start + stops, best.tourSize());
+
+                if (start < end) {
+                    List<Location> rawRoute = new ArrayList<>();
+                    for (int i = start; i < end; i++) {
+                        rawRoute.add(best.getLocation(i));
+                    }
+                    // ПРИМЕНЯЕМ 2-OPT к маршруту каждого грузовика
+                    List<Location> polished = TwoOptOptimizer.optimize(rawRoute, hub, cache);
+                    optimizedRoutes.add(polished);
+                }
+            }
+
+            // Пересчитываем дистанцию ПОСЛЕ 2-opt
+            double finalDistAfter2Opt = calculateTotalDistance(hub, optimizedRoutes, cache);
+
+            StringBuilder json = new StringBuilder("{\"status\": \"success\", ");
+            json.append("\"greedyDistance\": ").append(greedyDist).append(", ");
+            json.append("\"gaDistance\": ").append(finalDistAfter2Opt).append(", ");
+
+            json.append("\"log\": [");
+            for (int i = 0; i < log.size(); i++) {
+                json.append("\"").append(log.get(i)).append("\"").append(i < log.size() - 1 ? "," : "");
+            }
+            json.append("], \"routes\": [");
+
+            for (int t = 0; t < optimizedRoutes.size(); t++) {
+                json.append("[");
+                List<Location> route = optimizedRoutes.get(t);
+                for (int i = 0; i < route.size(); i++) {
+                    Location l = route.get(i);
+                    json.append("{\"lat\": ").append(l.getX()).append(", \"lng\": ").append(l.getY()).append("}");
+                    if (i < route.size() - 1) json.append(",");
+                }
+                json.append("]").append(t < optimizedRoutes.size() - 1 ? "," : "");
+            }
+            json.append("]}");
+
+            byte[] res = json.toString().getBytes();
+            exchange.sendResponseHeaders(200, res.length);
+            exchange.getResponseBody().write(res);
+            exchange.getResponseBody().close();
+        }
+
         private double calculateTotalDistance(Location hub, List<List<Location>> routes, MatrixCache cache) {
             double total = 0;
             for (List<Location> r : routes) {
                 Location curr = hub;
-                for (Location l : r) { total += cache.getDistance(curr, l); curr = l; }
+                for (Location l : r) {
+                    total += cache.getDistance(curr, l);
+                    curr = l;
+                }
                 total += cache.getDistance(curr, hub);
             }
             return total;
@@ -158,39 +205,6 @@ public class RouteServer {
                 }
             }
             return locs;
-        }
-
-        private void sendSuccessResponse(HttpExchange exchange, RouteDNA best, int trucks, double greedyDist, List<String> log, MatrixCache cache) throws IOException {
-            double finalDist = best.getDistance(null, trucks, cache);
-            StringBuilder json = new StringBuilder("{\"status\": \"success\", ");
-            json.append("\"greedyDistance\": ").append(greedyDist).append(", ");
-            json.append("\"gaDistance\": ").append(finalDist).append(", ");
-
-            // Лог прогресса для сайта
-            json.append("\"log\": [");
-            for (int i = 0; i < log.size(); i++) {
-                json.append("\"").append(log.get(i)).append("\"").append(i < log.size() - 1 ? "," : "");
-            }
-            json.append("], \"routes\": [");
-
-            int stops = (int) Math.ceil((double)best.tourSize() / trucks);
-            for (int t = 0; t < trucks; t++) {
-                json.append("[");
-                int start = t * stops;
-                int end = Math.min(start + stops, best.tourSize());
-                for (int i = start; i < end; i++) {
-                    Location l = best.getLocation(i);
-                    json.append("{\"lat\": ").append(l.getX()).append(", \"lng\": ").append(l.getY()).append("}");
-                    if (i < end - 1) json.append(",");
-                }
-                json.append("]").append(t < trucks - 1 ? "," : "");
-            }
-            json.append("]}");
-
-            byte[] res = json.toString().getBytes();
-            exchange.sendResponseHeaders(200, res.length);
-            exchange.getResponseBody().write(res);
-            exchange.getResponseBody().close();
         }
 
         private void sendErrorResponse(HttpExchange exchange, String msg) throws IOException {

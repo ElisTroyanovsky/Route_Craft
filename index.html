@@ -3,109 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Route Craft - Professional Setup</title>
+    <title>Route Craft - Fleet Management</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
-        #sidebar { width: 400px; background: #f8f9fa; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; overflow-y: auto; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; background: #f0f2f5; }
+
+        /* Sidebar Styling */
+        #sidebar { width: 420px; background: #ffffff; padding: 25px; box-shadow: 4px 0 15px rgba(0,0,0,0.05); z-index: 10; overflow-y: auto; display: flex; flex-direction: column; }
         #map-container { flex-grow: 1; position: relative; height: 100%; }
         #map { height: 100%; width: 100%; }
 
-        /* Поле поиска над картой */
-        #pac-input {
-            position: absolute; top: 10px; left: 10px; z-index: 5;
-            background-color: #fff; width: 300px; padding: 10px 15px;
-            border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            font-size: 14px; outline: none;
-        }
+        h2 { margin-top: 0; color: #1a1a1a; font-weight: 800; letter-spacing: -0.5px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #666; text-transform: uppercase; }
 
-        h2 { margin-top: 0; color: #333; }
-        .control-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        label { display: block; font-weight: bold; margin-bottom: 10px; font-size: 14px; }
+        /* UI Components */
+        .btn-group { display: flex; flex-direction: column; gap: 8px; }
+        button { padding: 12px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 14px; }
 
-        /* Кнопки */
-        .btn-group { display: flex; flex-direction: column; gap: 10px; }
-        button { padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; color: white; transition: 0.2s; }
+        .btn-add { background: #e7f0ff; color: #007bff; border: 1px solid #cce0ff; }
+        .btn-add.active { background: #007bff; color: white; box-shadow: 0 4px 12px rgba(0,123,255,0.3); }
+        .btn-hub { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+        .btn-hub.active { background: #ff4d4f; color: white; box-shadow: 0 4px 12px rgba(255,77,79,0.3); }
 
-        .btn-add { background: #007bff; }
-        .btn-add:hover { background: #0056b3; }
-        .btn-add.active { background: #ffc107; color: #000; box-shadow: 0 0 10px rgba(255,193,7,0.5); }
+        #btnSubmit { background: #000; color: #fff; width: 100%; margin-top: 20px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        #btnSubmit:hover { background: #333; transform: translateY(-1px); }
 
-        .btn-hub { background: #dc3545; }
-        .btn-hub.active { border: 2px solid #000; }
-
-        #btnSubmit { background: #28a745; width: 100%; padding: 15px; font-size: 16px; margin-top: 20px; }
-
-        /* Таблица */
-        .table-container { margin-top: 20px; }
+        /* Таблица точек */
+        .table-container { margin-top: 20px; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f1f3f5; }
-        .btn-delete { background: none; color: #dc3545; border: none; font-size: 16px; cursor: pointer; font-weight: bold; padding: 0 5px; }
-        .btn-delete:hover { color: #a71d2a; }
+        td { padding: 10px; border-bottom: 1px solid #f0f0f0; color: #444; }
+        .btn-delete { color: #ff4d4f; cursor: pointer; font-size: 18px; border: none; background: none; }
 
-        /* Логи и Статистика */
-        #statsPanel { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #28a745; border-radius: 4px; display: none; }
-        #log-container { margin-top: 15px; padding: 10px; background: #1e1e1e; border-radius: 5px; display: none; color: #00FF00; }
-        #log-list { font-family: monospace; font-size: 11px; list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; }
+        /* Красивые Логи */
+        #log-container { margin-top: 15px; background: #001529; border-radius: 8px; padding: 12px; display: none; border-left: 4px solid #1890ff; }
+        #log-list { font-family: 'Fira Code', 'Courier New', monospace; font-size: 11px; color: #a6adb4; list-style: none; padding: 0; margin: 0; max-height: 120px; overflow-y: auto; }
+        .log-line { margin-bottom: 4px; border-bottom: 1px solid #102339; padding-bottom: 2px; }
+        .log-record { color: #ffbc00; font-weight: bold; }
+
+        /* Статистика */
+        #statsPanel { margin-top: 20px; padding: 15px; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px; display: none; }
+        .stat-val { font-size: 18px; font-weight: 800; color: #389e0d; }
+
+        /* Переключатель Трафика */
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; vertical-align: middle; margin-right: 10px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #52c41a; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* Карточки маршрутов */
+        #itinerary-container { margin-top: 25px; display: none; }
+        .itinerary-card { background: #fff; border: 1px solid #e8e8e8; padding: 15px; margin-bottom: 15px; border-radius: 10px; transition: 0.3s; }
+        .truck-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .truck-badge { background: #007bff; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .truck-stats { font-size: 11px; color: #888; margin-bottom: 8px; display: flex; gap: 10px; }
+        .route-chain { font-size: 12px; color: #333; line-height: 1.5; padding: 8px; background: #f9f9f9; border-radius: 6px; }
+
+        #btnPrint { background: #52c41a; color: white; width: 100%; margin-top: 10px; }
+        #pac-input { position: absolute; top: 20px; left: 20px; z-index: 5; width: 350px; padding: 12px 20px; border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 14px; }
+
+        @media print {
+            body, html { background: white !important; height: auto !important; overflow: visible !important; display: block !important; }
+            #map-container, #pac-input, .no-print { display: none !important; }
+            #sidebar { width: 100% !important; box-shadow: none !important; padding: 0 !important; overflow: visible !important; display: block !important; }
+            #sidebar h2 { display: block !important; border-bottom: 2px solid #000; margin-bottom: 20px; }
+            #itinerary-container { display: block !important; margin-top: 0 !important; }
+            .itinerary-card { border: 2px solid #000 !important; break-inside: avoid !important; margin-bottom: 30px !important; box-shadow: none !important; padding: 20px !important; }
+            .maps-link { display: none !important; }
+            .truck-badge { border: 1px solid #000; color: #000 !important; background: transparent !important; }
+        }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h2>Route Craft</h2>
+    <div class="no-print">
+        <h2>Route Craft</h2>
 
-    <div class="control-group">
-        <label>Configuration:</label>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <span>Trucks:</span>
-            <input type="number" id="truckCount" value="3" style="width: 60px; padding: 5px;">
+        <div class="control-group" style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+            <label style="margin-bottom: 5px;">Map Tools</label>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="font-size: 12px; color: #333;">
+                    <label class="switch">
+                        <input type="checkbox" id="trafficToggle" onchange="toggleTraffic()">
+                        <span class="slider"></span>
+                    </label>
+                    🚦 Live Traffic
+                </div>
+                <button onclick="clearAllData()" style="padding: 5px 10px; background: #ff4d4f22; color: #ff4d4f; border: 1px solid #ff4d4f; font-size: 11px; border-radius: 4px;">🗑 Clear All</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>1. Vehicle Count</label>
+            <input type="number" id="truckCount" value="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+        </div>
+
+        <div class="control-group">
+            <label>2. Map Interaction</label>
+            <div class="btn-group">
+                <button id="btnHub" class="btn-hub" onclick="setMode('hub')">📍 Set Logistic Hub</button>
+                <button id="btnAddPoint" class="btn-add" onclick="setMode('points')">✚ Add Delivery Point</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="locationsTable"></table>
+        </div>
+
+        <button id="btnSubmit" onclick="sendToAlgorithm()">🚀 START OPTIMIZATION</button>
+
+        <div id="statsPanel">
+            <div style="font-size: 12px; color: #52c41a; font-weight: bold;">TOTAL SAVINGS</div>
+            <div class="stat-val"><span id="improvement">0</span>%</div>
+            <div style="font-size: 11px; color: #666; margin-top: 4px;">Hybrid distance: <span id="gaDist">0</span> km</div>
+        </div>
+
+        <div id="log-container">
+            <ul id="log-list"></ul>
         </div>
     </div>
 
-    <div class="control-group">
-        <label>Add Locations:</label>
-        <div class="btn-group">
-            <button id="btnHub" class="btn-hub" onclick="setMode('hub')">📍 Set Logistic Hub</button>
-            <button id="btnAddPoint" class="btn-add" onclick="setMode('points')">✚ Add Delivery Point</button>
-        </div>
-        <p id="mode-status" style="font-size: 11px; color: #666; margin-top: 10px;">Click on map or use search box to add.</p>
-    </div>
-
-    <div class="table-container">
-        <label>Stops List:</label>
-        <table>
-            <thead>
-            <tr>
-                <th>Name / Address</th>
-                <th style="width: 30px;"></th>
-            </tr>
-            </thead>
-            <tbody id="locationsTable"></tbody>
-        </table>
-    </div>
-
-    <button id="btnSubmit" onclick="sendToAlgorithm()">🚀 Run Super-Hybrid Optimization</button>
-
-    <div id="statsPanel">
-        <h3 style="margin-top: 0; font-size: 14px;">Results</h3>
-        <div>Improvement: <span id="improvement">0</span>%</div>
-        <div style="font-size: 11px; color: #666;">(GA: <span id="gaDist">0</span> km)</div>
-    </div>
-
-    <div id="log-container">
-        <ul id="log-list"></ul>
+    <div id="itinerary-container">
+        <h2 style="font-size: 18px; margin: 20px 0 15px 0;">Vehicle Deployment Plan</h2>
+        <div id="itinerary-list"></div>
+        <button id="btnPrint" class="no-print" onclick="window.print()">📄 PRINT ROUTE SHEETS</button>
     </div>
 </div>
 
-<div id="map-container">
-    <input id="pac-input" type="text" placeholder="Search for an address...">
+<div id="map-container" class="no-print">
+    <input id="pac-input" type="text" placeholder="Search for store or address...">
     <div id="map"></div>
 </div>
 
 <script src="config.js"></script>
 
 <script>
-    // Загрузка Google Maps с поддержкой поиска (Places) и на английском
     function loadGoogleMaps() {
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places&language=en&callback=initMap`;
@@ -114,163 +148,209 @@
     }
     window.onload = loadGoogleMaps;
 
-    let map, geocoder, autocomplete;
-    let mode = null; // null, 'hub', 'points'
-
+    let map, geocoder, autocomplete, trafficLayer;
+    let mode = null;
     let hubData = null;
     let hubMarker = null;
-    let pointsData = []; // [{id, lat, lng, address}]
+    let pointsData = [];
     let pointMarkers = [];
     let directionsRenderers = [];
 
     function initMap() {
         map = new google.maps.Map(document.getElementById("map"), {
             center: { lat: 32.0853, lng: 34.7818 },
-            zoom: 13,
-            clickableIcons: false // Отключаем клики по дефолтным иконкам POI
+            zoom: 12,
+            styles: [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }]
         });
         geocoder = new google.maps.Geocoder();
+        trafficLayer = new google.maps.TrafficLayer();
 
-        // Настройка поиска (Autocomplete)
         const input = document.getElementById("pac-input");
         autocomplete = new google.maps.places.Autocomplete(input);
         autocomplete.bindTo("bounds", map);
-
         autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
-            if (!place.geometry) return;
-
-            if (mode) {
-                processNewLocation(place.geometry.location, place.formatted_address);
-            } else {
-                alert("Please select 'Set Hub' or 'Add Delivery Point' first!");
-            }
+            if (place.geometry && mode) processNewLocation(place.geometry.location, place.formatted_address);
         });
-
-        // Клик по карте
         map.addListener("click", (e) => {
             if (mode) {
-                // Превращаем координаты в адрес (Reverse Geocoding)
                 geocoder.geocode({ location: e.latLng }, (results, status) => {
-                    if (status === "OK" && results[0]) {
-                        processNewLocation(e.latLng, results[0].formatted_address);
-                    } else {
-                        processNewLocation(e.latLng, `Point at ${e.latLng.lat().toFixed(4)}`);
-                    }
+                    const addr = (status === "OK" && results[0]) ? results[0].formatted_address : "Unknown Location";
+                    processNewLocation(e.latLng, addr);
                 });
             }
         });
+
+        // ЗАГРУЗКА ИЗ ПАМЯТИ
+        loadFromStorage();
+    }
+
+    // ТУМБЛЕР ПРОБОК
+    function toggleTraffic() {
+        const isChecked = document.getElementById('trafficToggle').checked;
+        trafficLayer.setMap(isChecked ? map : null);
+    }
+
+    // СОХРАНЕНИЕ В LOCALSTORAGE
+    function saveToStorage() {
+        localStorage.setItem('routeCraft_hub', JSON.stringify(hubData));
+        localStorage.setItem('routeCraft_points', JSON.stringify(pointsData));
+    }
+
+    function loadFromStorage() {
+        const savedHub = localStorage.getItem('routeCraft_hub');
+        const savedPoints = localStorage.getItem('routeCraft_points');
+
+        if (savedHub && savedHub !== "null") {
+            hubData = JSON.parse(savedHub);
+            const latLng = { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) };
+            hubMarker = new google.maps.Marker({ position: latLng, map: map, label: "H", icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' });
+            map.setCenter(latLng);
+        }
+
+        if (savedPoints) {
+            const points = JSON.parse(savedPoints);
+            points.forEach(p => {
+                const latLng = { lat: parseFloat(p.lat), lng: parseFloat(p.lng) };
+                const m = new google.maps.Marker({ position: latLng, map: map, label: (pointMarkers.length + 1).toString(), icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' });
+                pointMarkers.push(m);
+                pointsData.push(p);
+            });
+        }
+        updateTable();
+    }
+
+    function clearAllData() {
+        if (!confirm("Clear all points and storage?")) return;
+        localStorage.clear();
+        hubData = null;
+        if (hubMarker) hubMarker.setMap(null);
+        pointsData = [];
+        pointMarkers.forEach(m => m.setMap(null));
+        pointMarkers = [];
+        directionsRenderers.forEach(r => r.setMap(null));
+        updateTable();
+        document.getElementById('itinerary-container').style.display = 'none';
+        document.getElementById('statsPanel').style.display = 'none';
+        document.getElementById('log-container').style.display = 'none';
     }
 
     function setMode(newMode) {
         mode = newMode;
-        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        if (mode === 'hub') document.getElementById('btnHub').classList.add('active');
-        if (mode === 'points') document.getElementById('btnAddPoint').classList.add('active');
-        document.getElementById('mode-status').innerText = `Current Mode: Adding ${mode.toUpperCase()}`;
+        document.getElementById('btnHub').classList.toggle('active', mode === 'hub');
+        document.getElementById('btnAddPoint').classList.toggle('active', mode === 'points');
     }
 
     function processNewLocation(latLng, address) {
         if (mode === 'hub') {
             if (hubMarker) hubMarker.setMap(null);
-            hubMarker = new google.maps.Marker({
-                position: latLng, map: map, label: "H", icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
-            });
+            hubMarker = new google.maps.Marker({ position: latLng, map: map, label: "H", icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' });
             hubData = { id: "HUB", lat: latLng.lat().toFixed(6), lng: latLng.lng().toFixed(6), address: address };
-            mode = null; // Сбрасываем режим после добавления
-        } else if (mode === 'points') {
-            const marker = new google.maps.Marker({
-                position: latLng, map: map, label: (pointsData.length + 1).toString(), icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-            });
-            pointMarkers.push(marker);
-            pointsData.push({
-                id: "Store_" + (pointsData.length + 1),
-                lat: latLng.lat().toFixed(6),
-                lng: latLng.lng().toFixed(6),
-                address: address
-            });
-            mode = null; // Сбрасываем режим после добавления ОДНОЙ точки
+        } else {
+            const m = new google.maps.Marker({ position: latLng, map: map, label: (pointsData.length + 1).toString(), icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' });
+            pointMarkers.push(m);
+            pointsData.push({ id: "P" + pointsData.length, lat: latLng.lat().toFixed(6), lng: latLng.lng().toFixed(6), address: address });
         }
-
-        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        mode = null;
+        setMode(null);
         updateTable();
-        map.panTo(latLng);
-    }
-
-    function deletePoint(index) {
-        pointMarkers[index].setMap(null);
-        pointMarkers.splice(index, 1);
-        pointsData.splice(index, 1);
-        // Перерисовываем метки, чтобы обновить номера
-        pointMarkers.forEach((m, i) => m.setLabel((i+1).toString()));
-        updateTable();
+        saveToStorage(); // Сохраняем после добавления
     }
 
     function updateTable() {
-        const tbody = document.getElementById('locationsTable');
-        tbody.innerHTML = '';
-
-        if (hubData) {
-            tbody.innerHTML += `
-                <tr style="background: #fff0f0; font-weight: bold;">
-                    <td>🏠 ${hubData.address}</td>
-                    <td></td>
-                </tr>`;
-        }
-
+        const table = document.getElementById('locationsTable');
+        table.innerHTML = hubData ? `<tr style="background:#fff1f0"><td>📍 <b>HUB:</b> ${hubData.address}</td><td></td></tr>` : '';
         pointsData.forEach((p, i) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${i+1}. ${p.address}</td>
-                    <td><button class="btn-delete" onclick="deletePoint(${i})">×</button></td>
-                </tr>`;
+            table.innerHTML += `<tr><td>${i+1}. ${p.address}</td><td style="text-align:right"><button class="btn-delete" onclick="deletePoint(${i})">×</button></td></tr>`;
         });
     }
 
-    // Твой старый метод отправки на бэкенд (подправленный под новые данные)
+    function deletePoint(i) {
+        pointMarkers[i].setMap(null);
+        pointMarkers.splice(i, 1);
+        pointsData.splice(i, 1);
+        updateTable();
+        saveToStorage(); // Сохраняем после удаления
+    }
+
     function sendToAlgorithm() {
-        if (!hubData || pointsData.length === 0) { alert("Set Hub and Points!"); return; }
-
-        const requestData = {
-            trucks: parseInt(document.getElementById('truckCount').value),
-            hub: hubData,
-            locations: pointsData
-        };
-
-        document.getElementById('btnSubmit').innerText = "Processing...";
+        if (!hubData || pointsData.length === 0) return alert("Setup Hub and Points first!");
+        const req = { trucks: parseInt(document.getElementById('truckCount').value), hub: hubData, locations: pointsData };
+        document.getElementById('btnSubmit').innerText = "⚡ OPTIMIZING...";
 
         fetch('http://localhost:8080/api/optimize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestData)
+            body: JSON.stringify(req)
         })
             .then(res => res.json())
             .then(data => {
-                document.getElementById('btnSubmit').innerText = "🚀 Run Optimization";
+                document.getElementById('btnSubmit').innerHTML = "🚀 START OPTIMIZATION";
                 if (data.status === 'success') {
-                    document.getElementById('statsPanel').style.display = 'block';
-                    document.getElementById('gaDist').innerText = data.gaDistance.toFixed(2);
-                    let imp = ((data.greedyDistance - data.gaDistance) / data.greedyDistance) * 100;
-                    document.getElementById('improvement').innerText = Math.max(0, imp).toFixed(2);
-
-                    // Отрисовка логов
-                    const logList = document.getElementById('log-list');
-                    document.getElementById('log-container').style.display = 'block';
-                    logList.innerHTML = '';
-                    data.log.forEach(line => { logList.innerHTML += `<li>> ${line}</li>`; });
-
-                    // Отрисовка маршрутов (твой старый код DirectionsService)
+                    showStatsAndLogs(data);
                     drawRoutes(data.routes);
+                    displayItineraries(data.routes);
                 }
             });
+    }
+
+    function showStatsAndLogs(data) {
+        document.getElementById('statsPanel').style.display = 'block';
+        document.getElementById('gaDist').innerText = data.gaDistance.toFixed(2);
+        const imp = ((data.greedyDistance - data.gaDistance) / data.greedyDistance) * 100;
+        document.getElementById('improvement').innerText = Math.max(0, imp).toFixed(2);
+
+        const logCont = document.getElementById('log-container');
+        const logList = document.getElementById('log-list');
+        logCont.style.display = 'block';
+        logList.innerHTML = '';
+        data.log.forEach(line => {
+            const isRec = line.includes("Record") || line.includes("Cycle 15");
+            logList.innerHTML += `<li class="log-line ${isRec ? 'log-record' : ''}">[${new Date().toLocaleTimeString()}] ${line}</li>`;
+        });
+    }
+
+    function displayItineraries(routes) {
+        const list = document.getElementById('itinerary-list');
+        document.getElementById('itinerary-container').style.display = 'block';
+        list.innerHTML = '';
+
+        routes.forEach((route, i) => {
+            if (route.length === 0) return;
+            let stops = route.length;
+
+            let stopsChain = `HUB ➔ `;
+            let gMapUrl = `https://www.google.com/maps/dir/${hubData.lat},${hubData.lng}/`;
+
+            route.forEach(pt => {
+                const match = pointsData.find(p => Math.abs(parseFloat(p.lat) - pt.lat) < 0.0001);
+                stopsChain += (match ? match.address.split(',')[0] : 'Point') + ` ➔ `;
+                gMapUrl += `${pt.lat},${pt.lng}/`;
+            });
+            stopsChain += `HUB`;
+            gMapUrl += `${hubData.lat},${hubData.lng}/`;
+
+            list.innerHTML += `
+                <div class="itinerary-card">
+                    <div class="truck-header">
+                        <span class="truck-badge">VEHICLE #${i+1}</span>
+                        <span style="font-weight:bold; color:#52c41a">Active</span>
+                    </div>
+                    <div class="truck-stats">
+                        <span>📍 ${stops} Stops</span>
+                    </div>
+                    <div class="route-chain">${stopsChain}</div>
+                    <a href="${gMapUrl}" target="_blank" class="maps-link no-print">📍 Open Navigator</a>
+                </div>
+            `;
+        });
     }
 
     function drawRoutes(routes) {
         directionsRenderers.forEach(r => r.setMap(null));
         directionsRenderers = [];
-        const colors = ['#FF0000', '#0000FF', '#008000', '#FFA500', '#800080'];
+        const colors = ['#1890ff', '#f5222d', '#52c41a', '#faad14', '#722ed1'];
         const ds = new google.maps.DirectionsService();
-
         routes.forEach((route, i) => {
             if (route.length === 0) return;
             const waypoints = route.map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
@@ -283,7 +363,7 @@
                 if (status === 'OK') {
                     const dr = new google.maps.DirectionsRenderer({
                         map: map, suppressMarkers: true,
-                        polylineOptions: { strokeColor: colors[i % colors.length], strokeWeight: 5, strokeOpacity: 0.7 }
+                        polylineOptions: { strokeColor: colors[i % colors.length], strokeWeight: 5, strokeOpacity: 0.6 }
                     });
                     dr.setDirections(result);
                     directionsRenderers.push(dr);
