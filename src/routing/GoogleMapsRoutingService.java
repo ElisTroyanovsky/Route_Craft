@@ -13,7 +13,6 @@ import java.util.Scanner;
 
 public class GoogleMapsRoutingService {
 
-    // Лимит Google для бесплатных аккаунтов: 100 элементов за 1 запрос (10x10)
     private static final int MAX_CHUNK_SIZE = 10;
 
     private static String getApiKey() {
@@ -40,27 +39,45 @@ public class GoogleMapsRoutingService {
         allLocations.add(hub);
         allLocations.addAll(points);
 
-        // 1. Дробим общий список на мелкие пачки (чанки)
         List<List<Location>> chunks = new ArrayList<>();
         for (int i = 0; i < allLocations.size(); i += MAX_CHUNK_SIZE) {
             chunks.add(allLocations.subList(i, Math.min(allLocations.size(), i + MAX_CHUNK_SIZE)));
         }
 
-        System.out.println("📦 Точек всего: " + allLocations.size() + ". Разбито на " + chunks.size() + " пачек(и).");
+        System.out.println("📦 Точек всего: " + allLocations.size() + ". Проверяем кэш...");
 
-        int requestCount = 1;
-        int totalRequests = chunks.size() * chunks.size();
-
-        // 2. Двойной цикл: перебираем каждую пачку с каждой пачкой
         for (List<Location> originsChunk : chunks) {
             for (List<Location> destinationsChunk : chunks) {
 
-                System.out.println("⏳ Отправка запроса " + requestCount + " из " + totalRequests + "...");
+                // --- ШАГ А: ПРОВЕРКА ПЕРМАНЕНТНОГО КЭША ---
+                boolean allInCache = true;
+                for (Location from : originsChunk) {
+                    for (Location to : destinationsChunk) {
+                        Double d = PersistentCacheManager.get(from.getX(), from.getY(), to.getX(), to.getY());
+                        if (d == null) {
+                            allInCache = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (allInCache) {
+                    // Если все точки в этой пачке уже есть в файле - просто грузим их в текущий MatrixCache
+                    for (Location from : originsChunk) {
+                        for (Location to : destinationsChunk) {
+                            double d = PersistentCacheManager.get(from.getX(), from.getY(), to.getX(), to.getY());
+                            cache.saveDistance(from.getId(), to.getId(), d);
+                        }
+                    }
+                    continue; // ПРОПУСКАЕМ ЗАПРОС В GOOGLE! Экономим деньги.
+                }
+
+                // --- ШАГ Б: ЕСЛИ В КЭШЕ НЕТ - ИДЕМ В GOOGLE ---
+                System.out.println("🌍 Запрос в Google API (пачка не найдена в кэше)...");
 
                 try {
                     String originsStr = buildCoordsString(originsChunk);
                     String destsStr = buildCoordsString(destinationsChunk);
-
                     String urlString = "https://maps.googleapis.com/maps/api/distancematrix/json?origins="
                             + originsStr + "&destinations=" + destsStr + "&key=" + apiKey;
 
@@ -68,33 +85,30 @@ public class GoogleMapsRoutingService {
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
 
-                    if (conn.getResponseCode() != 200) {
-                        System.err.println("Google API Error: " + conn.getResponseCode());
-                        continue; // Если ошибка - просто пропускаем этот кусок
+                    if (conn.getResponseCode() == 200) {
+                        Scanner scanner = new Scanner(url.openStream(), "UTF-8").useDelimiter("\\A");
+                        String jsonResponse = scanner.hasNext() ? scanner.next() : "";
+                        scanner.close();
+
+                        // Парсим и сохраняем В ОБА кэша (в память и в файл)
+                        parseAndSaveChunk(jsonResponse, originsChunk, destinationsChunk, cache);
+
+                        // Сохраняем файл на диск после каждой успешной пачки
+                        PersistentCacheManager.saveCache();
                     }
 
-                    Scanner scanner = new Scanner(url.openStream(), "UTF-8").useDelimiter("\\A");
-                    String jsonResponse = scanner.hasNext() ? scanner.next() : "";
-                    scanner.close();
-
-                    // 3. Парсим именно этот кусок и кладем в общий Кэш
-                    parseAndSaveChunk(jsonResponse, originsChunk, destinationsChunk, cache);
-
-                    // 4. ВАЖНО: Делаем паузу, чтобы Google не забанил за DDoS
                     Thread.sleep(200);
 
                 } catch (Exception e) {
                     System.err.println("Ошибка при загрузке пачки: " + e.getMessage());
                 }
-                requestCount++;
             }
         }
 
-        System.out.println("✅ Полная матрица расстояний собрана в кэш!");
+        System.out.println("✅ Матрица готова (использовано кэширование)");
         return cache;
     }
 
-    // Вспомогательный метод для сборки координат в строку
     private static String buildCoordsString(List<Location> chunk) throws Exception {
         StringBuilder coords = new StringBuilder();
         for (int i = 0; i < chunk.size(); i++) {
@@ -104,7 +118,6 @@ public class GoogleMapsRoutingService {
         return URLEncoder.encode(coords.toString(), StandardCharsets.UTF_8.toString());
     }
 
-    // Вспомогательный метод для парсинга куска JSON
     private static void parseAndSaveChunk(String jsonResponse, List<Location> origins, List<Location> destinations, MatrixCache cache) {
         String[] rows = jsonResponse.split("\"elements\"\\s*:\\s*\\[");
         for (int i = 1; i < rows.length; i++) {
@@ -115,10 +128,16 @@ public class GoogleMapsRoutingService {
                 Location toPoint = destinations.get(j - 1);
                 try {
                     String valuePart = elements[j].split("\"value\"\\s*:\\s*")[1].split("\\}")[0].trim();
-                    double distanceMeters = Double.parseDouble(valuePart);
-                    cache.saveDistance(fromPoint.getId(), toPoint.getId(), distanceMeters / 1000.0);
+                    double distanceKm = Double.parseDouble(valuePart) / 1000.0;
+
+                    // Сохраняем в MatrixCache (для текущего расчета)
+                    cache.saveDistance(fromPoint.getId(), toPoint.getId(), distanceKm);
+
+                    // Сохраняем в PersistentCacheManager (для файла на диске)
+                    PersistentCacheManager.put(fromPoint.getX(), fromPoint.getY(), toPoint.getX(), toPoint.getY(), distanceKm);
+
                 } catch (Exception e) {
-                    cache.saveDistance(fromPoint.getId(), toPoint.getId(), 999999.0);
+                    cache.saveDistance(fromPoint.getId(), toPoint.getId(), 9999.0);
                 }
             }
         }

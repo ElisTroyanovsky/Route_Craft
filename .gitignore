@@ -45,4 +45,4 @@ config.js
 # Logs
 *.log
 
-draft/
+matrix_cache.json
