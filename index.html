@@ -191,11 +191,14 @@
             if (place.geometry && mode) processNewLocation(place.geometry.location, place.formatted_address);
         });
 
-        // Click-to-add listener with Reverse Geocoding
+        // Click-to-add listener with Fallback for addresses
         map.addListener("click", (e) => {
             if (mode) {
                 geocoder.geocode({ location: e.latLng }, (results, status) => {
-                    const addr = (status === "OK" && results[0]) ? results[0].formatted_address : "Unknown Location";
+                    // if address not found(GOOGLE API problem), we write coordinates to avoid "Unknown"
+                    const addr = (status === "OK" && results[0]) ?
+                        results[0].formatted_address :
+                        `Coords: ${e.latLng.lat().toFixed(4)}, ${e.latLng.lng().toFixed(4)}`;
                     processNewLocation(e.latLng, addr);
                 });
             }
@@ -335,8 +338,8 @@
         logCont.style.display = 'block';
         logList.innerHTML = '';
         data.log.forEach(line => {
-            const isRec = line.includes("Record") || line.includes("Cycle 15");
-            logList.innerHTML += `<li class="log-line ${isRec ? 'log-record' : ''}">[${new Date().toLocaleTimeString()}] ${line}</li>`;
+            const isHighlight = line.includes("Baseline") || line.includes("Cycle 15") || line.includes("FINAL");
+            logList.innerHTML += `<li class="log-line ${isHighlight ? 'log-record' : ''}">[${new Date().toLocaleTimeString()}] ${line}</li>`;
         });
     }
 
@@ -359,6 +362,7 @@
                 stopsChain += (match ? match.address.split(',')[0] : 'Point') + ` ➔ `;
                 gMapUrl += `${pt.lat},${pt.lng}/`;
             });
+
             stopsChain += `HUB`;
             gMapUrl += `${hubData.lat},${hubData.lng}/`;
 
@@ -368,11 +372,13 @@
                         <span class="truck-badge">VEHICLE #${i+1}</span>
                         <span style="font-weight:bold; color:#52c41a">Active</span>
                     </div>
-                    <div class="truck-stats">
+                    <div class="truck-stats" id="stats-truck-${i+1}">
                         <span>📍 ${stops} Stops</span>
                     </div>
                     <div class="route-chain">${stopsChain}</div>
-                    <a href="${gMapUrl}" target="_blank" class="maps-link no-print">📍 Open Navigator</a>
+                    <a href="${gMapUrl}" target="_blank" class="maps-link no-print" style="color: #007bff; text-decoration: none; font-size: 12px; font-weight: bold; margin-top: 10px; display: inline-block;">
+                        📍 Open in Google Maps
+                    </a>
                 </div>
             `;
         });

@@ -17,6 +17,7 @@ import routing.MatrixCache;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,17 +57,14 @@ public class RouteServer {
             try (InputStream is = exchange.getRequestBody()) {
                 String jsonBody = new String(is.readAllBytes());
 
-                // --- 1. DATA PREPARATION ---
                 int trucks = Integer.parseInt(jsonBody.split("\"trucks\":")[1].split(",")[0].trim());
                 Location hub = parseHub(jsonBody);
                 List<Location> deliveryPoints = parseLocations(jsonBody);
-
                 MatrixCache cache = GoogleMapsRoutingService.fetchDistanceMatrix(hub, deliveryPoints);
 
-                // --- 2. SUPER-HYBRID CYCLE ---
                 List<String> log = new ArrayList<>();
 
-                // Greedy Baseline
+                // --- 1. Greedy Baseline ---
                 List<List<Location>> greedyRes = GreedySolver.solve(hub, deliveryPoints, trucks, cache);
                 double greedyDistance = calculateTotalDistance(hub, greedyRes, cache);
                 log.add("Greedy Baseline: " + String.format("%.2f", greedyDistance) + " km");
@@ -77,43 +75,47 @@ public class RouteServer {
                 RouteDNA globalBestDNA = null;
                 double absoluteMinDist = Double.MAX_VALUE;
 
-                // Your settings: 15 cycles
+                // --- 2. Optimization Loop (15 Cycles) ---
                 for (int cycle = 1; cycle <= 15; cycle++) {
-                    // A. ANT PHASE
-                    List<RouteDNA> acoElite = new ArrayList<>();
+                    // A. ACO PHASE
+                    List<RouteDNA> acoElite = null;
                     for (int i = 0; i < 100; i++) {
                         acoElite = aco.runIteration();
                     }
+                    double acoDist = acoElite.get(0).getDistance(hub, trucks, cache);
 
-                    // B. GENETIC PHASE
+                    // B. GA PHASE (Starting with ACO elite)
                     Population pop = new Population(100, true, deliveryPoints);
-                    for (int i = 0; i < Math.min(20, acoElite.size()); i++) { // To use only the top 20 best results from the Ant Colony to form the initial Genetic Algorithm population (elitism from ACO to GA).
+                    for (int i = 0; i < Math.min(20, acoElite.size()); i++) {
                         pop.saveTour(i, acoElite.get(i));
                     }
-
-                    if (globalBestDNA != null) { // To preserve the best result found across all cycles (Global Elitism), ensuring we never lose the overall best solution.
+                    if (globalBestDNA != null) {
                         pop.saveTour(21, globalBestDNA);
                     }
 
-                    // 1000 generations
                     for (int gen = 0; gen < 1000; gen++) {
                         pop = ga.evolvePopulation(pop);
                     }
 
                     RouteDNA cycleBest = pop.getFittest(hub, trucks, cache);
-                    double cycleDist = cycleBest.getDistance(hub, trucks, cache);
+                    double gaDist = cycleBest.getDistance(hub, trucks, cache);
 
-                    if (cycleDist < absoluteMinDist) {
-                        absoluteMinDist = cycleDist;
+                    // Update Global Record
+                    if (gaDist < absoluteMinDist) {
+                        absoluteMinDist = gaDist;
                         globalBestDNA = cycleBest;
-                        System.out.println("New Global Record: " + absoluteMinDist);
                     }
 
+                    // Reinforce Pheromones from current best
                     aco.reinforcePheromones(globalBestDNA);
-                    log.add("Cycle " + cycle + " | Current: " + String.format("%.2f", cycleDist) + " km");
+
+                    // Log every 5th cycle with Phase Analysis
+                    if (cycle % 5 == 0) {
+                        log.add(String.format("Cycle %d | ACO: %.2f -> GA: %.2f", cycle, acoDist, gaDist));
+                    }
                 }
 
-                // --- 3. SEND RESULT (With final 2-Opt polishing) ---
+                // --- 3. FINAL POLISHING & RESPONSE ---
                 sendSuccessResponse(exchange, globalBestDNA, trucks, greedyDistance, log, cache, hub);
 
             } catch (Exception e) {
@@ -123,31 +125,46 @@ public class RouteServer {
         }
 
         private void sendSuccessResponse(HttpExchange exchange, RouteDNA best, int trucks, double greedyDist, List<String> log, MatrixCache cache, Location hub) throws IOException {
-            // Split the overall sequence into individual routes
-            List<List<Location>> optimizedRoutes = new ArrayList<>();
+            // 1. Prepare raw routes from GA (Before 2-opt)
+            List<List<Location>> gaRoutes = new ArrayList<>();
             int stops = (int) Math.ceil((double)best.tourSize() / trucks);
 
             for (int t = 0; t < trucks; t++) {
                 int start = t * stops;
                 int end = Math.min(start + stops, best.tourSize());
-
                 if (start < end) {
-                    List<Location> rawRoute = new ArrayList<>();
-                    for (int i = start; i < end; i++) {
-                        rawRoute.add(best.getLocation(i));
-                    }
-                    // APPLY 2-OPT to each truck's route
-                    List<Location> polished = TwoOptOptimizer.optimize(rawRoute, hub, cache);
-                    optimizedRoutes.add(polished);
+                    List<Location> route = new ArrayList<>();
+                    for (int i = start; i < end; i++) route.add(best.getLocation(i));
+                    gaRoutes.add(route);
                 }
             }
+            double distGA = calculateTotalDistance(hub, gaRoutes, cache);
 
-            // Recalculate distance AFTER 2-opt
-            double finalDistAfter2Opt = calculateTotalDistance(hub, optimizedRoutes, cache);
+            // 2. Prepare polished routes (After 2-opt)
+            List<List<Location>> polishedRoutes = new ArrayList<>();
+            for (List<Location> route : gaRoutes) {
+                polishedRoutes.add(TwoOptOptimizer.optimize(route, hub, cache));
+            }
+            double dist2Opt = calculateTotalDistance(hub, polishedRoutes, cache);
 
+            // 3. Compare and pick the best overall result
+            List<List<Location>> finalRoutes;
+            double finalDist;
+
+            if (dist2Opt < distGA) {
+                finalRoutes = polishedRoutes;
+                finalDist = dist2Opt;
+                log.add("FINAL 2-opt: " + String.format("%.2f", finalDist) + " km (Improved!)");
+            } else {
+                finalRoutes = gaRoutes;
+                finalDist = distGA;
+                log.add("FINAL 2-opt: " + String.format("%.2f", finalDist) + " km (No changes)");
+            }
+
+            // 4. Build JSON Response
             StringBuilder json = new StringBuilder("{\"status\": \"success\", ");
             json.append("\"greedyDistance\": ").append(greedyDist).append(", ");
-            json.append("\"gaDistance\": ").append(finalDistAfter2Opt).append(", ");
+            json.append("\"gaDistance\": ").append(finalDist).append(", ");
 
             json.append("\"log\": [");
             for (int i = 0; i < log.size(); i++) {
@@ -155,22 +172,24 @@ public class RouteServer {
             }
             json.append("], \"routes\": [");
 
-            for (int t = 0; t < optimizedRoutes.size(); t++) {
+            for (int t = 0; t < finalRoutes.size(); t++) {
                 json.append("[");
-                List<Location> route = optimizedRoutes.get(t);
+                List<Location> route = finalRoutes.get(t);
                 for (int i = 0; i < route.size(); i++) {
                     Location l = route.get(i);
                     json.append("{\"lat\": ").append(l.getX()).append(", \"lng\": ").append(l.getY()).append("}");
                     if (i < route.size() - 1) json.append(",");
                 }
-                json.append("]").append(t < optimizedRoutes.size() - 1 ? "," : "");
+                json.append("]").append(t < finalRoutes.size() - 1 ? "," : "");
             }
             json.append("]}");
 
-            byte[] res = json.toString().getBytes();
+            byte[] res = json.toString().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
             exchange.sendResponseHeaders(200, res.length);
-            exchange.getResponseBody().write(res);
-            exchange.getResponseBody().close();
+            try (var os = exchange.getResponseBody()) {
+                os.write(res);
+            }
         }
 
         private double calculateTotalDistance(Location hub, List<List<Location>> routes, MatrixCache cache) {
