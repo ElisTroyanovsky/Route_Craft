@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MatrixCache implements DistanceMatrix {
-    // Двойная хэш-таблица: "ID откуда" -> ("ID куда" -> "Дистанция в км")
+    // Double hash table: "ID from" -> ("ID to" -> "Distance in km")
     private final Map<String, Map<String, Double>> cache = new HashMap<>();
 
     public void saveDistance(String fromId, String toId, double distanceKm) {
@@ -14,18 +14,18 @@ public class MatrixCache implements DistanceMatrix {
 
     @Override
     public double getDistance(Location from, Location to) {
-        // Если точка та же самая, расстояние 0
+        // If it's the same point, distance is 0
         if (from.getId().equals(to.getId())) {
             return 0.0;
         }
 
-        // Достаем расстояние из кэша
+        // Retrieve distance from cache
         if (cache.containsKey(from.getId()) && cache.get(from.getId()).containsKey(to.getId())) {
             return cache.get(from.getId()).get(to.getId());
         }
 
-        // Фоллбэк: если маршрута нет (например, точка на острове без мостов)
-        // Выдаем гигантский штраф, чтобы алгоритмы туда не ехали
+        // Fallback: if there is no route (e.g., a point on an island without bridges)
+        // We issue a giant penalty so that the algorithms don't go there
         return 999999.0;
     }
 }

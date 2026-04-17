@@ -7,13 +7,15 @@ import java.util.List;
 
 public class GeneticAlgorithm {
 
+    // The Genetic Algorithm mimics natural selection (crossover, mutation). Tournament selection picks a random group of individuals and selects the best one among them to be a parent.
+
     private static final double MUTATION_RATE = 0.10;
     private static final int TOURNAMENT_SIZE = 3;
     private static final boolean ELITISM = true;
 
     private Location depot;
     private int numberOfTrucks;
-    private DistanceMatrix matrix; // Добавили матрицу
+    private DistanceMatrix matrix;
 
     public GeneticAlgorithm(Location depot, int numberOfTrucks, DistanceMatrix matrix) {
         this.depot = depot;
@@ -24,9 +26,10 @@ public class GeneticAlgorithm {
     public Population evolvePopulation(Population pop) {
         Population newPopulation = new Population(pop.populationSize(), false, null);
 
+        // Elitism preserves the best individual from the previous generation to ensure that the quality of the population does not decrease over time.
         int elitismOffset = 0;
         if (ELITISM) {
-            newPopulation.saveTour(0, pop.getFittest(depot, numberOfTrucks, matrix)); // Прокидываем матрицу
+            newPopulation.saveTour(0, pop.getFittest(depot, numberOfTrucks, matrix)); // Pass the matrix
             elitismOffset = 1;
         }
 
@@ -97,6 +100,6 @@ public class GeneticAlgorithm {
             int randomId = (int) (Math.random() * pop.populationSize());
             tournament.saveTour(i, pop.getTour(randomId));
         }
-        return tournament.getFittest(depot, numberOfTrucks, matrix); // Прокидываем матрицу
+        return tournament.getFittest(depot, numberOfTrucks, matrix); // Pass the matrix
     }
 }

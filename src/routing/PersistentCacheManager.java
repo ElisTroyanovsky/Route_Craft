@@ -43,7 +43,7 @@ public class PersistentCacheManager {
     }
 
     private static String makeKey(double lat1, double lng1, double lat2, double lng2) {
-        // Округляем до 5 знаков, чтобы избежать дублей из-за погрешностей
+        // Round to 5 decimal places to avoid duplicates due to precision errors
         return String.format("%.5f,%.5f:%.5f,%.5f", lat1, lng1, lat2, lng2);
     }
 }

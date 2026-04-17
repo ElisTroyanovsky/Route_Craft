@@ -7,9 +7,10 @@ import java.util.Collections;
 import java.util.List;
 
 public class TwoOptOptimizer {
+    // This algorithm optimizes a route by swapping edges to eliminate "crossings" (intersections). It repeatedly checks if reversing a segment of the path results in a shorter total distance.
 
     public static List<Location> optimize(List<Location> route, Location hub, MatrixCache cache) {
-        // Создаем полную петлю: Hub -> Точки -> Hub
+        // Create a full loop: Hub -> Points -> Hub
         List<Location> tour = new ArrayList<>();
         tour.add(hub);
         tour.addAll(route);
@@ -28,7 +29,7 @@ public class TwoOptOptimizer {
             }
         }
 
-        // Возвращаем только точки (без хаба в начале и конце)
+        // Return only points (without hub at start and end)
         return tour.subList(1, tour.size() - 1);
     }
 
@@ -38,9 +39,9 @@ public class TwoOptOptimizer {
         Location c = tour.get(j);
         Location d = tour.get(j + 1);
 
-        // Текущая дистанция краев сегмента
+        // Current distance of the segment edges
         double currentDist = cache.getDistance(a, b) + cache.getDistance(c, d);
-        // Дистанция после "перекрещивания"
+        // Distance after "crossing"
         double newDist = cache.getDistance(a, c) + cache.getDistance(b, d);
 
         return newDist < currentDist;

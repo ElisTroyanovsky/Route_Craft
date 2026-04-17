@@ -22,9 +22,9 @@ public class GoogleMapsRoutingService {
             if (parts.length > 1) {
                 return parts[1].split("[\"']")[1];
             }
-            throw new RuntimeException("Ключ не найден!");
+            throw new RuntimeException("API key not found!");
         } catch (Exception e) {
-            System.err.println("❌ Ошибка чтения config.js: " + e.getMessage());
+            System.err.println("❌ Error reading config.js: " + e.getMessage());
             return null;
         }
     }
@@ -44,12 +44,12 @@ public class GoogleMapsRoutingService {
             chunks.add(allLocations.subList(i, Math.min(allLocations.size(), i + MAX_CHUNK_SIZE)));
         }
 
-        System.out.println("📦 Точек всего: " + allLocations.size() + ". Проверяем кэш...");
+        System.out.println("📦 Total points: " + allLocations.size() + ". Checking cache...");
 
         for (List<Location> originsChunk : chunks) {
             for (List<Location> destinationsChunk : chunks) {
 
-                // --- ШАГ А: ПРОВЕРКА ПЕРМАНЕНТНОГО КЭША ---
+                // --- STEP A: CHECK PERSISTENT CACHE ---
                 boolean allInCache = true;
                 for (Location from : originsChunk) {
                     for (Location to : destinationsChunk) {
@@ -62,18 +62,18 @@ public class GoogleMapsRoutingService {
                 }
 
                 if (allInCache) {
-                    // Если все точки в этой пачке уже есть в файле - просто грузим их в текущий MatrixCache
+                    // If all points in this chunk are already in the file - just load them into current MatrixCache
                     for (Location from : originsChunk) {
                         for (Location to : destinationsChunk) {
                             double d = PersistentCacheManager.get(from.getX(), from.getY(), to.getX(), to.getY());
                             cache.saveDistance(from.getId(), to.getId(), d);
                         }
                     }
-                    continue; // ПРОПУСКАЕМ ЗАПРОС В GOOGLE! Экономим деньги.
+                    continue; // SKIP REQUEST TO GOOGLE! Saving money.
                 }
 
-                // --- ШАГ Б: ЕСЛИ В КЭШЕ НЕТ - ИДЕМ В GOOGLE ---
-                System.out.println("🌍 Запрос в Google API (пачка не найдена в кэше)...");
+                // --- STEP B: IF NOT IN CACHE - GO TO GOOGLE ---
+                System.out.println("🌍 Requesting Google API (chunk not found in cache)...");
 
                 try {
                     String originsStr = buildCoordsString(originsChunk);
@@ -90,22 +90,22 @@ public class GoogleMapsRoutingService {
                         String jsonResponse = scanner.hasNext() ? scanner.next() : "";
                         scanner.close();
 
-                        // Парсим и сохраняем В ОБА кэша (в память и в файл)
+                        // Parse and save to BOTH caches (memory and file)
                         parseAndSaveChunk(jsonResponse, originsChunk, destinationsChunk, cache);
 
-                        // Сохраняем файл на диск после каждой успешной пачки
+                        // Save file to disk after each successful chunk
                         PersistentCacheManager.saveCache();
                     }
 
                     Thread.sleep(200);
 
                 } catch (Exception e) {
-                    System.err.println("Ошибка при загрузке пачки: " + e.getMessage());
+                    System.err.println("Error loading chunk: " + e.getMessage());
                 }
             }
         }
 
-        System.out.println("✅ Матрица готова (использовано кэширование)");
+        System.out.println("✅ Matrix is ready (caching used)");
         return cache;
     }
 
@@ -130,10 +130,10 @@ public class GoogleMapsRoutingService {
                     String valuePart = elements[j].split("\"value\"\\s*:\\s*")[1].split("\\}")[0].trim();
                     double distanceKm = Double.parseDouble(valuePart) / 1000.0;
 
-                    // Сохраняем в MatrixCache (для текущего расчета)
+                    // Save to MatrixCache (for current calculation)
                     cache.saveDistance(fromPoint.getId(), toPoint.getId(), distanceKm);
 
-                    // Сохраняем в PersistentCacheManager (для файла на диске)
+                    // Save to PersistentCacheManager (for disk file)
                     PersistentCacheManager.put(fromPoint.getX(), fromPoint.getY(), toPoint.getX(), toPoint.getY(), distanceKm);
 
                 } catch (Exception e) {

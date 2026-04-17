@@ -32,7 +32,8 @@ public class RouteDNA {
         distance = 0;
     }
 
-    // МАГИЯ ЗДЕСЬ: Передаем матрицу для расчета
+    // Pass the matrix for calculation
+    // This calculates the total distance covered by all trucks for this specific route configuration. It iterates through the tour, splitting it into segments for each truck.
     public double getDistance(Location depot, int numberOfTrucks, DistanceMatrix matrix) {
         if (distance == 0) {
             double totalDist = 0;
@@ -44,7 +45,7 @@ public class RouteDNA {
 
                 if (start >= end) break;
 
-                // Используем матрицу вместо прямой линии (distanceTo)
+                // Use the matrix instead of a straight line (distanceTo)
                 totalDist += matrix.getDistance(depot, tour.get(start));
 
                 for (int i = start; i < end - 1; i++) {
@@ -58,7 +59,9 @@ public class RouteDNA {
         return distance;
     }
 
-    // Фитнес тоже считается через матрицу
+    // Fitness is also calculated using the matrix
+
+    // Fitness represents how "good" a solution is. The formula 1/distance is used because we want to minimize distance, meaning a smaller distance results in a higher fitness score.
     public double getFitness(Location depot, int trucks, DistanceMatrix matrix) {
         if (fitness == 0) {
             fitness = 1 / getDistance(depot, trucks, matrix);

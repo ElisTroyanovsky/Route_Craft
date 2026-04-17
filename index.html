@@ -4,47 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Route Craft - Fleet Management</title>
+
     <style>
+        /* Base layout: Full-screen flex container */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; background: #f0f2f5; }
 
-        /* Sidebar Styling */
+        /* Sidebar: Fixed width, scrollable, holds all controls and results */
         #sidebar { width: 420px; background: #ffffff; padding: 25px; box-shadow: 4px 0 15px rgba(0,0,0,0.05); z-index: 10; overflow-y: auto; display: flex; flex-direction: column; }
+
+        /* Map Container: Takes up the remaining screen space */
         #map-container { flex-grow: 1; position: relative; height: 100%; }
         #map { height: 100%; width: 100%; }
 
+        /* Typography and grouping */
         h2 { margin-top: 0; color: #1a1a1a; font-weight: 800; letter-spacing: -0.5px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .control-group { margin-bottom: 20px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #666; text-transform: uppercase; }
 
-        /* UI Components */
+        /* UI Components: Buttons with interactive states */
         .btn-group { display: flex; flex-direction: column; gap: 8px; }
         button { padding: 12px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 14px; }
 
+        /* Interactive Modes: Hub vs Points coloring */
         .btn-add { background: #e7f0ff; color: #007bff; border: 1px solid #cce0ff; }
         .btn-add.active { background: #007bff; color: white; box-shadow: 0 4px 12px rgba(0,123,255,0.3); }
         .btn-hub { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
         .btn-hub.active { background: #ff4d4f; color: white; box-shadow: 0 4px 12px rgba(255,77,79,0.3); }
 
+        /* Main Action Button (Black/Dark mode) */
         #btnSubmit { background: #000; color: #fff; width: 100%; margin-top: 20px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
         #btnSubmit:hover { background: #333; transform: translateY(-1px); }
 
-        /* Таблица точек */
+        /* Scrollable table for added locations */
         .table-container { margin-top: 20px; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         td { padding: 10px; border-bottom: 1px solid #f0f0f0; color: #444; }
         .btn-delete { color: #ff4d4f; cursor: pointer; font-size: 18px; border: none; background: none; }
 
-        /* Красивые Логи */
+        /* Console-style logs for Algorithm progress */
         #log-container { margin-top: 15px; background: #001529; border-radius: 8px; padding: 12px; display: none; border-left: 4px solid #1890ff; }
         #log-list { font-family: 'Fira Code', 'Courier New', monospace; font-size: 11px; color: #a6adb4; list-style: none; padding: 0; margin: 0; max-height: 120px; overflow-y: auto; }
         .log-line { margin-bottom: 4px; border-bottom: 1px solid #102339; padding-bottom: 2px; }
         .log-record { color: #ffbc00; font-weight: bold; }
 
-        /* Статистика */
+        /* Stats Panel (Green) - shown after optimization */
         #statsPanel { margin-top: 20px; padding: 15px; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px; display: none; }
         .stat-val { font-size: 18px; font-weight: 800; color: #389e0d; }
 
-        /* Переключатель Трафика */
+        /* Traffic Toggle UI (Switch) */
         .switch { position: relative; display: inline-block; width: 40px; height: 20px; vertical-align: middle; margin-right: 10px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
@@ -52,7 +59,7 @@
         input:checked + .slider { background-color: #52c41a; }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* Карточки маршрутов */
+        /* Itinerary Cards: Individual truck route details */
         #itinerary-container { margin-top: 25px; display: none; }
         .itinerary-card { background: #fff; border: 1px solid #e8e8e8; padding: 15px; margin-bottom: 15px; border-radius: 10px; transition: 0.3s; }
         .truck-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -61,8 +68,11 @@
         .route-chain { font-size: 12px; color: #333; line-height: 1.5; padding: 8px; background: #f9f9f9; border-radius: 6px; }
 
         #btnPrint { background: #52c41a; color: white; width: 100%; margin-top: 10px; }
+
+        /* Floating search bar on map */
         #pac-input { position: absolute; top: 20px; left: 20px; z-index: 5; width: 350px; padding: 12px 20px; border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 14px; }
 
+        /* PRINT STYLES: Hides all UI, leaves only Manifests for paper output */
         @media print {
             body, html { background: white !important; height: auto !important; overflow: visible !important; display: block !important; }
             #map-container, #pac-input, .no-print { display: none !important; }
@@ -140,6 +150,9 @@
 <script src="config.js"></script>
 
 <script>
+    /**
+     * GOOGLE MAPS LOADING: Dynamic script insertion to avoid key exposure in main file
+     */
     function loadGoogleMaps() {
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places&language=en&callback=initMap`;
@@ -148,14 +161,18 @@
     }
     window.onload = loadGoogleMaps;
 
+    // GLOBAL VARIABLES: State management
     let map, geocoder, autocomplete, trafficLayer;
-    let mode = null;
+    let mode = null; // null, 'hub', or 'points'
     let hubData = null;
     let hubMarker = null;
     let pointsData = [];
     let pointMarkers = [];
-    let directionsRenderers = [];
+    let directionsRenderers = []; // Tracks multiple truck paths on map
 
+    /**
+     * MAP INITIALIZATION: Sets center, zoom, and event listeners
+     */
     function initMap() {
         map = new google.maps.Map(document.getElementById("map"), {
             center: { lat: 32.0853, lng: 34.7818 },
@@ -165,6 +182,7 @@
         geocoder = new google.maps.Geocoder();
         trafficLayer = new google.maps.TrafficLayer();
 
+        // Autocomplete Search setup
         const input = document.getElementById("pac-input");
         autocomplete = new google.maps.places.Autocomplete(input);
         autocomplete.bindTo("bounds", map);
@@ -172,6 +190,8 @@
             const place = autocomplete.getPlace();
             if (place.geometry && mode) processNewLocation(place.geometry.location, place.formatted_address);
         });
+
+        // Click-to-add listener with Reverse Geocoding
         map.addListener("click", (e) => {
             if (mode) {
                 geocoder.geocode({ location: e.latLng }, (results, status) => {
@@ -181,17 +201,18 @@
             }
         });
 
-        // ЗАГРУЗКА ИЗ ПАМЯТИ
+        // PERSISTENCE: Restore previous session
         loadFromStorage();
     }
 
-    // ТУМБЛЕР ПРОБОК
+    // TOGGLES: Map visual layers
     function toggleTraffic() {
         const isChecked = document.getElementById('trafficToggle').checked;
         trafficLayer.setMap(isChecked ? map : null);
     }
 
-    // СОХРАНЕНИЕ В LOCALSTORAGE
+    /** * PERSISTENCE LOGIC: Save Hub and Points to LocalStorage
+     */
     function saveToStorage() {
         localStorage.setItem('routeCraft_hub', JSON.stringify(hubData));
         localStorage.setItem('routeCraft_points', JSON.stringify(pointsData));
@@ -220,6 +241,8 @@
         updateTable();
     }
 
+    /** * DATA RESET: Clean all markers, paths, and storage
+     */
     function clearAllData() {
         if (!confirm("Clear all points and storage?")) return;
         localStorage.clear();
@@ -235,12 +258,15 @@
         document.getElementById('log-container').style.display = 'none';
     }
 
+    // UI CONTROL: Highlight active adding mode
     function setMode(newMode) {
         mode = newMode;
         document.getElementById('btnHub').classList.toggle('active', mode === 'hub');
         document.getElementById('btnAddPoint').classList.toggle('active', mode === 'points');
     }
 
+    /** * CORE LOGIC: Add new marker to the system
+     */
     function processNewLocation(latLng, address) {
         if (mode === 'hub') {
             if (hubMarker) hubMarker.setMap(null);
@@ -254,9 +280,10 @@
         mode = null;
         setMode(null);
         updateTable();
-        saveToStorage(); // Сохраняем после добавления
+        saveToStorage();
     }
 
+    // UI TABLE: Sync DOM table with pointsData array
     function updateTable() {
         const table = document.getElementById('locationsTable');
         table.innerHTML = hubData ? `<tr style="background:#fff1f0"><td>📍 <b>HUB:</b> ${hubData.address}</td><td></td></tr>` : '';
@@ -270,9 +297,11 @@
         pointMarkers.splice(i, 1);
         pointsData.splice(i, 1);
         updateTable();
-        saveToStorage(); // Сохраняем после удаления
+        saveToStorage();
     }
 
+    /** * API COMMUNICATION: POST request to Hybrid Java Server
+     */
     function sendToAlgorithm() {
         if (!hubData || pointsData.length === 0) return alert("Setup Hub and Points first!");
         const req = { trucks: parseInt(document.getElementById('truckCount').value), hub: hubData, locations: pointsData };
@@ -288,12 +317,13 @@
                 document.getElementById('btnSubmit').innerHTML = "🚀 START OPTIMIZATION";
                 if (data.status === 'success') {
                     showStatsAndLogs(data);
-                    drawRoutes(data.routes);
-                    displayItineraries(data.routes);
+                    drawRoutes(data.routes); // Map visual
+                    displayItineraries(data.routes); // Manifest text
                 }
             });
     }
 
+    // UI: Display Global improvement logs
     function showStatsAndLogs(data) {
         document.getElementById('statsPanel').style.display = 'block';
         document.getElementById('gaDist').innerText = data.gaDistance.toFixed(2);
@@ -310,6 +340,8 @@
         });
     }
 
+    /** * MANIFEST LOGIC: Build text-based route chains and Deep Links for drivers
+     */
     function displayItineraries(routes) {
         const list = document.getElementById('itinerary-list');
         document.getElementById('itinerary-container').style.display = 'block';
@@ -346,14 +378,20 @@
         });
     }
 
+    /** * VISUAL LOGIC: Use Google DirectionsService to draw actual road paths
+     */
     function drawRoutes(routes) {
+        // Clear previous lines
         directionsRenderers.forEach(r => r.setMap(null));
         directionsRenderers = [];
+
         const colors = ['#1890ff', '#f5222d', '#52c41a', '#faad14', '#722ed1'];
         const ds = new google.maps.DirectionsService();
+
         routes.forEach((route, i) => {
             if (route.length === 0) return;
             const waypoints = route.map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
+
             ds.route({
                 origin: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
                 destination: { lat: parseFloat(hubData.lat), lng: parseFloat(hubData.lng) },
@@ -362,7 +400,7 @@
             }, (result, status) => {
                 if (status === 'OK') {
                     const dr = new google.maps.DirectionsRenderer({
-                        map: map, suppressMarkers: true,
+                        map: map, suppressMarkers: true, // Marker management handled by our custom icons
                         polylineOptions: { strokeColor: colors[i % colors.length], strokeWeight: 5, strokeOpacity: 0.6 }
                     });
                     dr.setDirections(result);

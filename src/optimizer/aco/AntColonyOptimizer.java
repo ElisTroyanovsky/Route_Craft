@@ -5,6 +5,7 @@ import routing.DistanceMatrix;
 import optimizer.ga.RouteDNA;
 import java.util.ArrayList;
 import java.util.List;
+// Alpha and Beta are weights for the decision-making process: Alpha controls the influence of pheromones (memory), while Beta controls the influence of distance/heuristic (greedy choice).
 
 public class AntColonyOptimizer {
     // ACO Parameters
@@ -50,7 +51,7 @@ public class AntColonyOptimizer {
             // Convert Ant tour to RouteDNA for the Genetic Algorithm later
             iterationResults.add(new RouteDNA(ant.getTour()));
         }
-
+        // Evaporation prevents pheromones from accumulating infinitely and helps the algorithm forget old, sub-optimal paths. Updating pheromones reinforces paths that were part of shorter tours.
         // 2. Evaporate pheromones
         evaporatePheromones();
 
@@ -71,7 +72,7 @@ public class AntColonyOptimizer {
     private void updatePheromones(List<Ant> ants) {
         for (Ant ant : ants) {
             double distance = ant.calculateTourDistance(hub, matrix, trucks);
-            double contribution = Q / distance;
+            double contribution = Q / distance; // This calculates the amount of pheromone to deposit; shorter distances result in higher pheromone concentrations.
 
             List<Location> tour = ant.getTour();
             // Deposit pheromones on each edge of the tour

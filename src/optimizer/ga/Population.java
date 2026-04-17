@@ -12,7 +12,7 @@ public class Population {
         if (initialise) {
             for (int i = 0; i < populationSize(); i++) {
                 RouteDNA newTour = new RouteDNA();
-                newTour.generateIndividual(locations);
+                newTour.generateIndividual(locations); // рандомный путь из всех локаций
                 saveTour(i, newTour);
             }
         }
@@ -30,7 +30,7 @@ public class Population {
         return routes.length;
     }
 
-    // МАГИЯ ЗДЕСЬ: Добавили матрицу
+    // Added matrix
     public RouteDNA getFittest(Location depot, int trucks, DistanceMatrix matrix) {
         RouteDNA fittest = routes[0];
         for (int i = 1; i < populationSize(); i++) {

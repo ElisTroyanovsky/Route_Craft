@@ -7,6 +7,8 @@ import java.util.List;
 
 public class GreedySolver {
 
+    // The formula is "Nearest Neighbor": from the current location, always choose the unvisited point with the minimum distance.
+
     public static List<List<Location>> solve(Location hub, List<Location> allPoints, int numberOfTrucks, DistanceMatrix matrix) {
         List<List<Location>> finalRoutes = new ArrayList<>();
         List<Location> unvisited = new ArrayList<>(allPoints);
@@ -22,7 +24,6 @@ public class GreedySolver {
                 double minDistance = Double.MAX_VALUE;
 
                 for (Location candidate : unvisited) {
-                    // МАГИЯ ЗДЕСЬ: Берем реальное расстояние по дорогам из Кэша Google!
                     double dist = matrix.getDistance(currentLocation, candidate);
 
                     if (dist < minDistance) {

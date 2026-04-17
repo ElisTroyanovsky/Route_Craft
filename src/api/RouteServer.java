@@ -6,7 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import domain.Location;
 import optimizer.GreedySolver;
-import optimizer.TwoOptOptimizer; // Не забудь, что этот класс должен быть создан
+import optimizer.TwoOptOptimizer; // Don't forget that this class must be created
 import optimizer.aco.AntColonyOptimizer;
 import optimizer.ga.GeneticAlgorithm;
 import optimizer.ga.Population;
@@ -28,7 +28,7 @@ public class RouteServer {
             server.createContext("/api/optimize", new OptimizeHandler());
             server.setExecutor(null);
             server.start();
-            System.out.println("🚀 Super-Hybrid + 2-Opt Server is running on http://localhost:8080");
+            System.out.println("Server is running on http://localhost:63342/Route_Craft/index.html?_ijt=gomvlrdskf5qvb1kc291hi17v8&_ij_reload=RELOAD_ON_SAVE");
         } catch (IOException e) {
             System.err.println("Failed to start server: " + e.getMessage());
         }
@@ -56,14 +56,14 @@ public class RouteServer {
             try (InputStream is = exchange.getRequestBody()) {
                 String jsonBody = new String(is.readAllBytes());
 
-                // --- 1. ПОДГОТОВКА ДАННЫХ ---
+                // --- 1. DATA PREPARATION ---
                 int trucks = Integer.parseInt(jsonBody.split("\"trucks\":")[1].split(",")[0].trim());
                 Location hub = parseHub(jsonBody);
                 List<Location> deliveryPoints = parseLocations(jsonBody);
 
                 MatrixCache cache = GoogleMapsRoutingService.fetchDistanceMatrix(hub, deliveryPoints);
 
-                // --- 2. СВЕРХГИБРИДНЫЙ ЦИКЛ ---
+                // --- 2. SUPER-HYBRID CYCLE ---
                 List<String> log = new ArrayList<>();
 
                 // Greedy Baseline
@@ -77,25 +77,25 @@ public class RouteServer {
                 RouteDNA globalBestDNA = null;
                 double absoluteMinDist = Double.MAX_VALUE;
 
-                // Твои настройки: 15 циклов
+                // Your settings: 15 cycles
                 for (int cycle = 1; cycle <= 15; cycle++) {
-                    // А. ФАЗА МУРАВЬЕВ
+                    // A. ANT PHASE
                     List<RouteDNA> acoElite = new ArrayList<>();
                     for (int i = 0; i < 100; i++) {
                         acoElite = aco.runIteration();
                     }
 
-                    // Б. ФАЗА ГЕНЕТИКИ
+                    // B. GENETIC PHASE
                     Population pop = new Population(100, true, deliveryPoints);
-                    for (int i = 0; i < Math.min(20, acoElite.size()); i++) {
+                    for (int i = 0; i < Math.min(20, acoElite.size()); i++) { // To use only the top 20 best results from the Ant Colony to form the initial Genetic Algorithm population (elitism from ACO to GA).
                         pop.saveTour(i, acoElite.get(i));
                     }
 
-                    if (globalBestDNA != null) {
+                    if (globalBestDNA != null) { // To preserve the best result found across all cycles (Global Elitism), ensuring we never lose the overall best solution.
                         pop.saveTour(21, globalBestDNA);
                     }
 
-                    // Твои настройки: 1000 генераций
+                    // 1000 generations
                     for (int gen = 0; gen < 1000; gen++) {
                         pop = ga.evolvePopulation(pop);
                     }
@@ -113,7 +113,7 @@ public class RouteServer {
                     log.add("Cycle " + cycle + " | Current: " + String.format("%.2f", cycleDist) + " km");
                 }
 
-                // --- 3. ОТПРАВЛЯЕМ РЕЗУЛЬТАТ (С финальной 2-Opt полировкой) ---
+                // --- 3. SEND RESULT (With final 2-Opt polishing) ---
                 sendSuccessResponse(exchange, globalBestDNA, trucks, greedyDistance, log, cache, hub);
 
             } catch (Exception e) {
@@ -123,7 +123,7 @@ public class RouteServer {
         }
 
         private void sendSuccessResponse(HttpExchange exchange, RouteDNA best, int trucks, double greedyDist, List<String> log, MatrixCache cache, Location hub) throws IOException {
-            // Разрезаем общую последовательность на отдельные маршруты
+            // Split the overall sequence into individual routes
             List<List<Location>> optimizedRoutes = new ArrayList<>();
             int stops = (int) Math.ceil((double)best.tourSize() / trucks);
 
@@ -136,13 +136,13 @@ public class RouteServer {
                     for (int i = start; i < end; i++) {
                         rawRoute.add(best.getLocation(i));
                     }
-                    // ПРИМЕНЯЕМ 2-OPT к маршруту каждого грузовика
+                    // APPLY 2-OPT to each truck's route
                     List<Location> polished = TwoOptOptimizer.optimize(rawRoute, hub, cache);
                     optimizedRoutes.add(polished);
                 }
             }
 
-            // Пересчитываем дистанцию ПОСЛЕ 2-opt
+            // Recalculate distance AFTER 2-opt
             double finalDistAfter2Opt = calculateTotalDistance(hub, optimizedRoutes, cache);
 
             StringBuilder json = new StringBuilder("{\"status\": \"success\", ");

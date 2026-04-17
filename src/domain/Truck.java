@@ -5,8 +5,8 @@ import java.util.List;
 
 public class Truck {
     private int id;
-    private Location depot; // Стартовая и конечная точка (Хаб)
-    private List<Location> route; // Только промежуточные остановки (без Хаба)
+    private Location depot; // Start and end point (Hub)
+    private List<Location> route; // Intermediate stops only (without Hub)
 
     public Truck(int id, Location depot) {
         this.id = id;
@@ -14,12 +14,12 @@ public class Truck {
         this.route = new ArrayList<>();
     }
 
-    // Добавление одной точки в конец маршрута
+    // Adding a single point to the end of the route
     public void addStop(Location location) {
         this.route.add(location);
     }
 
-    // Установка сразу всего списка остановок
+    // Setting the entire list of stops at once
     public void setRoute(List<Location> route) {
         this.route = new ArrayList<>(route);
     }
@@ -37,32 +37,32 @@ public class Truck {
     }
 
     /**
-     * Главная логика: расчет дистанции с учетом выезда из Хаба и возврата в него.
+     * Main logic: calculating distance considering departure from Hub and return to it.
      */
     public double getTotalDistance() {
-        // Если грузовик никуда не едет, его дистанция = 0
+        // If the truck is not going anywhere, its distance = 0
         if (route == null || route.isEmpty()) {
             return 0.0;
         }
 
         double totalDist = 0.0;
 
-        // 1. Дистанция от Хаба до ПЕРВОЙ точки маршрута
+        // 1. Distance from Hub to the FIRST point of the route
         totalDist += depot.distanceTo(route.get(0));
 
-        // 2. Дистанция между всеми промежуточными точками (1 -> 2 -> 3)
+        // 2. Distance between all intermediate points (1 -> 2 -> 3)
         for (int i = 0; i < route.size() - 1; i++) {
             totalDist += route.get(i).distanceTo(route.get(i + 1));
         }
 
-        // 3. Дистанция от ПОСЛЕДНЕЙ точки обратно в Хаб
+        // 3. Distance from the LAST point back to Hub
         totalDist += route.get(route.size() - 1).distanceTo(depot);
 
         return totalDist;
     }
 
     /**
-     * Удобный метод для вывода маршрута в консоль (для дебага и демонстрации)
+     * Convenient method for printing the route to the console (for debug and demonstration)
      */
     @Override
     public String toString() {

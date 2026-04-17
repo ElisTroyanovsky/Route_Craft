@@ -40,6 +40,8 @@ public class Ant {
         int fromIdx = getIndex(current, allLocations);
 
         // Calculate probability for each unvisited location
+
+        // This is the Transition Probability formula: it combines local desirability (1/distance) with global memory (pheromone levels) to determine the likelihood of choosing a specific next city.
         for (int i = 0; i < allLocations.size(); i++) {
             if (!visited[i]) {
                 double distance = matrix.getDistance(current, allLocations.get(i));
