@@ -3,6 +3,7 @@ package optimizer.ga;
 import domain.Location;
 import routing.DistanceMatrix;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -31,7 +32,7 @@ public class GeneticAlgorithm {
         // Elitism preserves the best individual from the previous generation to ensure that the quality of the population does not decrease over time.
         int elitismOffset = 0;
         if (ELITISM) {
-            newPopulation.saveTour(0, pop.getFittest(depot, numberOfTrucks, matrix)); // Pass the matrix
+            newPopulation.saveTour(0, pop.getFittest(depot, numberOfTrucks, matrix));
             elitismOffset = 1;
         }
 
@@ -49,33 +50,28 @@ public class GeneticAlgorithm {
         return newPopulation;
     }
 
+    // Order Crossover (OX): copies a random segment from parent1, then fills
+    // the rest with parent2's genes in order (skipping duplicates).
     private RouteDNA crossover(RouteDNA parent1, RouteDNA parent2) {
-        List<Location> childTour = new ArrayList<>(parent1.tourSize());
-        for(int i = 0; i < parent1.tourSize(); i++) {
-            childTour.add(null);
+        int size = parent1.tourSize();
+        List<Location> childTour = new ArrayList<>(Collections.nCopies(size, null));
+
+        // Pick two random cut points and make sure start <= end
+        int start = (int) (RANDOM.nextDouble() * size);
+        int end   = (int) (RANDOM.nextDouble() * size);
+        if (start > end) { int tmp = start; start = end; end = tmp; }
+
+        // Copy the segment [start..end] from parent1 into the child
+        for (int i = start; i <= end; i++) {
+            childTour.set(i, parent1.getLocation(i));
         }
 
-        int startPos = (int) (RANDOM.nextDouble() * parent1.tourSize());
-        int endPos = (int) (RANDOM.nextDouble() * parent1.tourSize());
-
-        for (int i = 0; i < parent1.tourSize(); i++) {
-            if (startPos < endPos && i > startPos && i < endPos) {
-                childTour.set(i, parent1.getLocation(i));
-            } else if (startPos > endPos) {
-                if (!(i < startPos && i > endPos)) {
-                    childTour.set(i, parent1.getLocation(i));
-                }
-            }
-        }
-
-        for (int i = 0; i < parent2.tourSize(); i++) {
+        // Fill the remaining null slots with parent2's genes, preserving their order
+        int childIdx = 0;
+        for (int i = 0; i < size; i++) {
             if (!childTour.contains(parent2.getLocation(i))) {
-                for (int ii = 0; ii < childTour.size(); ii++) {
-                    if (childTour.get(ii) == null) {
-                        childTour.set(ii, parent2.getLocation(i));
-                        break;
-                    }
-                }
+                while (childTour.get(childIdx) != null) childIdx++;
+                childTour.set(childIdx, parent2.getLocation(i));
             }
         }
 
@@ -102,6 +98,6 @@ public class GeneticAlgorithm {
             int randomId = (int) (RANDOM.nextDouble() * pop.populationSize());
             tournament.saveTour(i, pop.getTour(randomId));
         }
-        return tournament.getFittest(depot, numberOfTrucks, matrix); // Pass the matrix
+        return tournament.getFittest(depot, numberOfTrucks, matrix);
     }
 }

@@ -14,6 +14,10 @@ import optimizer.ga.RouteDNA;
 import routing.GoogleMapsRoutingService;
 import routing.MatrixCache;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -89,13 +93,15 @@ public class RouteServer {
 
         private void handlePostRequest(HttpExchange exchange) throws IOException {
             try (InputStream is = exchange.getRequestBody()) {
-                String jsonBody = new String(is.readAllBytes());
+                String jsonBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
-                int trucks = Integer.parseInt(jsonBody.split("\"trucks\":")[1].split(",")[0].trim());
-                Location hub = parseHub(jsonBody);
-                List<Location> deliveryPoints = parseLocations(jsonBody);
+                // --- Parse request using Gson (safe, works with any field order or special chars) ---
+                JsonObject body = JsonParser.parseString(jsonBody).getAsJsonObject();
+                int trucks = body.get("trucks").getAsInt();
+                Location hub = parseHub(body.getAsJsonObject("hub"));
+                List<Location> deliveryPoints = parseLocations(body.getAsJsonArray("locations"));
+
                 MatrixCache cache = GoogleMapsRoutingService.fetchDistanceMatrix(hub, deliveryPoints);
-
                 List<String> log = new ArrayList<>();
 
                 // --- 1. Greedy Baseline ---
@@ -109,24 +115,28 @@ public class RouteServer {
                 RouteDNA globalBestDNA = null;
                 double absoluteMinDist = Double.MAX_VALUE;
 
-                // --- 2. Optimization Loop (15 Cycles) ---
+                // Population lives outside the loop so GA evolution accumulates across cycles
+                Population pop = new Population(100, true, deliveryPoints);
+
+                // --- 2. Hybrid Optimization Loop (15 Cycles) ---
                 for (int cycle = 1; cycle <= 15; cycle++) {
-                    // A. ACO PHASE
+                    // A. ACO PHASE: ants explore routes and update pheromones
                     List<RouteDNA> acoElite = null;
                     for (int i = 0; i < 100; i++) {
                         acoElite = aco.runIteration();
                     }
                     double acoDist = acoElite.get(0).getDistance(hub, trucks, cache);
 
-                    // B. GA PHASE (Starting with ACO elite)
-                    Population pop = new Population(100, true, deliveryPoints);
+                    // B. Inject ACO elite into GA population (first 20 slots)
                     for (int i = 0; i < Math.min(20, acoElite.size()); i++) {
                         pop.saveTour(i, acoElite.get(i));
                     }
+                    // Also keep the best result found so far (slot 20, after the 20 ACO elites)
                     if (globalBestDNA != null) {
-                        pop.saveTour(21, globalBestDNA);
+                        pop.saveTour(20, globalBestDNA);
                     }
 
+                    // C. GA PHASE: evolve the population
                     for (int gen = 0; gen < 1000; gen++) {
                         pop = ga.evolvePopulation(pop);
                     }
@@ -134,22 +144,25 @@ public class RouteServer {
                     RouteDNA cycleBest = pop.getFittest(hub, trucks, cache);
                     double gaDist = cycleBest.getDistance(hub, trucks, cache);
 
-                    // Update Global Record
                     if (gaDist < absoluteMinDist) {
                         absoluteMinDist = gaDist;
                         globalBestDNA = cycleBest;
                     }
 
-                    // Reinforce Pheromones from current best
+                    // D. Feed GA's best result back into ACO pheromones (cross-pollination)
                     aco.reinforcePheromones(globalBestDNA);
 
-                    // Log every 5th cycle with Phase Analysis
                     if (cycle % 5 == 0) {
                         log.add(String.format("Cycle %d | ACO: %.2f -> GA: %.2f", cycle, acoDist, gaDist));
                     }
                 }
 
-                // --- 3. FINAL POLISHING & RESPONSE ---
+                if (globalBestDNA == null) {
+                    sendErrorResponse(exchange, "No valid route found");
+                    return;
+                }
+
+                // --- 3. Final polish with 2-opt and send response ---
                 sendSuccessResponse(exchange, globalBestDNA, trucks, greedyDistance, log, cache, hub);
 
             } catch (Exception e) {
@@ -239,23 +252,20 @@ public class RouteServer {
             return total;
         }
 
-        private Location parseHub(String json) {
-            String hubPart = json.split("\"hub\":")[1].split("\\}")[0];
-            double lat = Double.parseDouble(hubPart.split("\"lat\":\"")[1].split("\"")[0]);
-            double lng = Double.parseDouble(hubPart.split("\"lng\":\"")[1].split("\"")[0]);
+        private Location parseHub(JsonObject hubJson) {
+            double lat = hubJson.get("lat").getAsDouble();
+            double lng = hubJson.get("lng").getAsDouble();
             return new Location("HUB", lat, lng);
         }
 
-        private List<Location> parseLocations(String json) {
+        private List<Location> parseLocations(JsonArray locationsJson) {
             List<Location> locs = new ArrayList<>();
-            String part = json.split("\"locations\":\\[")[1].split("\\]")[0];
-            for (String block : part.split("\\}")) {
-                if (block.contains("\"id\"")) {
-                    String id = block.split("\"id\":\"")[1].split("\"")[0];
-                    double lat = Double.parseDouble(block.split("\"lat\":\"")[1].split("\"")[0]);
-                    double lng = Double.parseDouble(block.split("\"lng\":\"")[1].split("\"")[0]);
-                    locs.add(new Location(id, lat, lng));
-                }
+            for (int i = 0; i < locationsJson.size(); i++) {
+                JsonObject loc = locationsJson.get(i).getAsJsonObject();
+                String id  = loc.get("id").getAsString();
+                double lat = loc.get("lat").getAsDouble();
+                double lng = loc.get("lng").getAsDouble();
+                locs.add(new Location(id, lat, lng));
             }
             return locs;
         }
