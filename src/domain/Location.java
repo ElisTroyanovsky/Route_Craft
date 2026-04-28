@@ -11,7 +11,6 @@ public class Location {
         this.y = y;
     }
 
-    // THIS METHOD IS USED BY TRUCK TO FIND DISTANCE
     public double distanceTo(Location other) {
         double xDist = Math.abs(this.x - other.x);
         double yDist = Math.abs(this.y - other.y);

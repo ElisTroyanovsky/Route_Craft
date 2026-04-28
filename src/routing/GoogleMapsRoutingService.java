@@ -13,6 +13,7 @@ import java.util.Scanner;
 
 public class GoogleMapsRoutingService {
 
+    // google distance matrix api limits requests to 10 origins or destinations per call
     private static final int MAX_CHUNK_SIZE = 10;
 
     private static String getApiKey() {
@@ -35,10 +36,12 @@ public class GoogleMapsRoutingService {
 
         if (apiKey == null) return cache;
 
+        // combine hub and delivery points into one list for matrix building
         List<Location> allLocations = new ArrayList<>();
         allLocations.add(hub);
         allLocations.addAll(points);
 
+        // split into chunks so each api call stays within the size limit
         List<List<Location>> chunks = new ArrayList<>();
         for (int i = 0; i < allLocations.size(); i += MAX_CHUNK_SIZE) {
             chunks.add(allLocations.subList(i, Math.min(allLocations.size(), i + MAX_CHUNK_SIZE)));
@@ -49,7 +52,7 @@ public class GoogleMapsRoutingService {
         for (List<Location> originsChunk : chunks) {
             for (List<Location> destinationsChunk : chunks) {
 
-                // --- STEP A: CHECK PERSISTENT CACHE ---
+                // step a: check if every pair in this chunk is already in the persistent cache
                 boolean allInCache = true;
                 for (Location from : originsChunk) {
                     for (Location to : destinationsChunk) {
@@ -62,17 +65,17 @@ public class GoogleMapsRoutingService {
                 }
 
                 if (allInCache) {
-                    // If all points in this chunk are already in the file - just load them into current MatrixCache
+                    // all pairs already cached — load them into the in-memory cache and skip the api call
                     for (Location from : originsChunk) {
                         for (Location to : destinationsChunk) {
                             double d = PersistentCacheManager.get(from.getX(), from.getY(), to.getX(), to.getY());
                             cache.saveDistance(from.getId(), to.getId(), d);
                         }
                     }
-                    continue; // SKIP REQUEST TO GOOGLE! Saving money.
+                    continue;
                 }
 
-                // --- STEP B: IF NOT IN CACHE - GO TO GOOGLE ---
+                // step b: not cached — fetch from the google distance matrix api
                 System.out.println("🌍 Requesting Google API (chunk not found in cache)...");
 
                 try {
@@ -90,10 +93,8 @@ public class GoogleMapsRoutingService {
                         String jsonResponse = scanner.hasNext() ? scanner.next() : "";
                         scanner.close();
 
-                        // Parse and save to BOTH caches (memory and file)
+                        // parse response and save to both in-memory cache and disk
                         parseAndSaveChunk(jsonResponse, originsChunk, destinationsChunk, cache);
-
-                        // Save file to disk after each successful chunk
                         PersistentCacheManager.saveCache();
                     }
 
@@ -130,10 +131,7 @@ public class GoogleMapsRoutingService {
                     String valuePart = elements[j].split("\"value\"\\s*:\\s*")[1].split("\\}")[0].trim();
                     double distanceKm = Double.parseDouble(valuePart) / 1000.0;
 
-                    // Save to MatrixCache (for current calculation)
                     cache.saveDistance(fromPoint.getId(), toPoint.getId(), distanceKm);
-
-                    // Save to PersistentCacheManager (for disk file)
                     PersistentCacheManager.put(fromPoint.getX(), fromPoint.getY(), toPoint.getX(), toPoint.getY(), distanceKm);
 
                 } catch (Exception e) {

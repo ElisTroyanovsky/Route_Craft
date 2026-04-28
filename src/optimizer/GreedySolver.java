@@ -7,8 +7,7 @@ import java.util.List;
 
 public class GreedySolver {
 
-    // The formula is "Nearest Neighbor": from the current location, always choose the unvisited point with the minimum distance.
-
+    // nearest neighbor heuristic: always pick the closest unvisited point from the current location
     public static List<List<Location>> solve(Location hub, List<Location> allPoints, int numberOfTrucks, DistanceMatrix matrix) {
         List<List<Location>> finalRoutes = new ArrayList<>();
         List<Location> unvisited = new ArrayList<>(allPoints);

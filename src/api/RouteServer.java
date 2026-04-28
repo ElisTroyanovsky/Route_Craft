@@ -80,6 +80,7 @@ public class RouteServer {
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
             exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
 
+            // browsers send a preflight OPTIONS request before the actual POST
             if ("OPTIONS".equals(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(204, -1);
                 exchange.close();
@@ -95,7 +96,7 @@ public class RouteServer {
             try (InputStream is = exchange.getRequestBody()) {
                 String jsonBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
-                // --- Parse request using Gson (safe, works with any field order or special chars) ---
+                // parse incoming json request
                 JsonObject body = JsonParser.parseString(jsonBody).getAsJsonObject();
                 int trucks = body.get("trucks").getAsInt();
                 Location hub = parseHub(body.getAsJsonObject("hub"));
@@ -104,7 +105,7 @@ public class RouteServer {
                 MatrixCache cache = GoogleMapsRoutingService.fetchDistanceMatrix(hub, deliveryPoints);
                 List<String> log = new ArrayList<>();
 
-                // --- 1. Greedy Baseline ---
+                // 1. greedy baseline — gives a quick reference distance before optimization
                 List<List<Location>> greedyRes = GreedySolver.solve(hub, deliveryPoints, trucks, cache);
                 double greedyDistance = calculateTotalDistance(hub, greedyRes, cache);
                 log.add("Greedy Baseline: " + String.format("%.2f", greedyDistance) + " km");
@@ -115,28 +116,29 @@ public class RouteServer {
                 RouteDNA globalBestDNA = null;
                 double absoluteMinDist = Double.MAX_VALUE;
 
-                // Population lives outside the loop so GA evolution accumulates across cycles
+                // population lives outside the loop so ga evolution accumulates across cycles
                 Population pop = new Population(100, true, deliveryPoints);
 
-                // --- 2. Hybrid Optimization Loop (15 Cycles) ---
+                // 2. hybrid optimization loop — aco and ga reinforce each other over 15 cycles
                 for (int cycle = 1; cycle <= 15; cycle++) {
-                    // A. ACO PHASE: ants explore routes and update pheromones
+
+                    // a. aco phase: ants explore routes and update pheromones
                     List<RouteDNA> acoElite = null;
                     for (int i = 0; i < 100; i++) {
                         acoElite = aco.runIteration();
                     }
                     double acoDist = acoElite.get(0).getDistance(hub, trucks, cache);
 
-                    // B. Inject ACO elite into GA population (first 20 slots)
+                    // b. inject aco elite into ga population (first 20 slots)
                     for (int i = 0; i < Math.min(20, acoElite.size()); i++) {
                         pop.saveTour(i, acoElite.get(i));
                     }
-                    // Also keep the best result found so far (slot 20, after the 20 ACO elites)
+                    // also preserve the global best in slot 20 so it's not lost during evolution
                     if (globalBestDNA != null) {
                         pop.saveTour(20, globalBestDNA);
                     }
 
-                    // C. GA PHASE: evolve the population
+                    // c. ga phase: evolve the population
                     for (int gen = 0; gen < 1000; gen++) {
                         pop = ga.evolvePopulation(pop);
                     }
@@ -149,7 +151,7 @@ public class RouteServer {
                         globalBestDNA = cycleBest;
                     }
 
-                    // D. Feed GA's best result back into ACO pheromones (cross-pollination)
+                    // d. feed ga's best result back into aco pheromones (cross-pollination)
                     aco.reinforcePheromones(globalBestDNA);
 
                     if (cycle % 5 == 0) {
@@ -162,7 +164,7 @@ public class RouteServer {
                     return;
                 }
 
-                // --- 3. Final polish with 2-opt and send response ---
+                // 3. final 2-opt polish and send response
                 sendSuccessResponse(exchange, globalBestDNA, trucks, greedyDistance, log, cache, hub);
 
             } catch (Exception e) {
@@ -172,9 +174,9 @@ public class RouteServer {
         }
 
         private void sendSuccessResponse(HttpExchange exchange, RouteDNA best, int trucks, double greedyDist, List<String> log, MatrixCache cache, Location hub) throws IOException {
-            // 1. Prepare raw routes from GA (Before 2-opt)
+            // 1. split the best tour into per-truck routes before applying 2-opt
             List<List<Location>> gaRoutes = new ArrayList<>();
-            int stops = (int) Math.ceil((double)best.tourSize() / trucks);
+            int stops = (int) Math.ceil((double) best.tourSize() / trucks);
 
             for (int t = 0; t < trucks; t++) {
                 int start = t * stops;
@@ -187,14 +189,14 @@ public class RouteServer {
             }
             double distGA = calculateTotalDistance(hub, gaRoutes, cache);
 
-            // 2. Prepare polished routes (After 2-opt)
+            // 2. apply 2-opt to each truck's route to eliminate any remaining crossings
             List<List<Location>> polishedRoutes = new ArrayList<>();
             for (List<Location> route : gaRoutes) {
                 polishedRoutes.add(TwoOptOptimizer.optimize(route, hub, cache));
             }
             double dist2Opt = calculateTotalDistance(hub, polishedRoutes, cache);
 
-            // 3. Compare and pick the best overall result
+            // 3. use whichever result is shorter (2-opt can occasionally be worse on real road data)
             List<List<Location>> finalRoutes;
             double finalDist;
 
@@ -208,7 +210,7 @@ public class RouteServer {
                 log.add("FINAL 2-opt: " + String.format("%.2f", finalDist) + " km (No changes)");
             }
 
-            // 4. Build JSON Response
+            // 4. build json response
             StringBuilder json = new StringBuilder("{\"status\": \"success\", ");
             json.append("\"greedyDistance\": ").append(greedyDist).append(", ");
             json.append("\"gaDistance\": ").append(finalDist).append(", ");

@@ -7,14 +7,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+// mimics natural selection: crossover combines genes from two parents,
+// mutation introduces random variation, elitism preserves the best individual
 public class GeneticAlgorithm {
 
-    // The Genetic Algorithm mimics natural selection (crossover, mutation). Tournament selection picks a random group of individuals and selects the best one among them to be a parent.
-
-    private static final double MUTATION_RATE = 0.10;
-    private static final int TOURNAMENT_SIZE = 3;
-    private static final boolean ELITISM = true;
-    private static final Random RANDOM = new Random();
+    private static final double MUTATION_RATE  = 0.10;
+    private static final int TOURNAMENT_SIZE   = 3;
+    private static final boolean ELITISM       = true;
+    private static final Random RANDOM         = new Random();
 
     private Location depot;
     private int numberOfTrucks;
@@ -29,7 +29,7 @@ public class GeneticAlgorithm {
     public Population evolvePopulation(Population pop) {
         Population newPopulation = new Population(pop.populationSize(), false, null);
 
-        // Elitism preserves the best individual from the previous generation to ensure that the quality of the population does not decrease over time.
+        // elitism: carry the best individual unchanged so population quality never regresses
         int elitismOffset = 0;
         if (ELITISM) {
             newPopulation.saveTour(0, pop.getFittest(depot, numberOfTrucks, matrix));
@@ -50,23 +50,22 @@ public class GeneticAlgorithm {
         return newPopulation;
     }
 
-    // Order Crossover (OX): copies a random segment from parent1, then fills
-    // the rest with parent2's genes in order (skipping duplicates).
+    // order crossover (OX): copies a random segment from parent1, then fills the remaining
+    // slots with parent2's genes in their original order, skipping already placed ones
     private RouteDNA crossover(RouteDNA parent1, RouteDNA parent2) {
         int size = parent1.tourSize();
         List<Location> childTour = new ArrayList<>(Collections.nCopies(size, null));
 
-        // Pick two random cut points and make sure start <= end
+        // pick a random segment [start..end] inside the tour
         int start = (int) (RANDOM.nextDouble() * size);
         int end   = (int) (RANDOM.nextDouble() * size);
         if (start > end) { int tmp = start; start = end; end = tmp; }
 
-        // Copy the segment [start..end] from parent1 into the child
         for (int i = start; i <= end; i++) {
             childTour.set(i, parent1.getLocation(i));
         }
 
-        // Fill the remaining null slots with parent2's genes, preserving their order
+        // fill remaining null slots with parent2's genes preserving their order
         int childIdx = 0;
         for (int i = 0; i < size; i++) {
             if (!childTour.contains(parent2.getLocation(i))) {
@@ -78,9 +77,10 @@ public class GeneticAlgorithm {
         return new RouteDNA(childTour);
     }
 
+    // swap mutation: randomly swaps two stops in the tour with probability MUTATION_RATE
     private void mutate(RouteDNA tour) {
-        for(int tourPos1=0; tourPos1 < tour.tourSize(); tourPos1++){
-            if(RANDOM.nextDouble() < MUTATION_RATE){
+        for (int tourPos1 = 0; tourPos1 < tour.tourSize(); tourPos1++) {
+            if (RANDOM.nextDouble() < MUTATION_RATE) {
                 int tourPos2 = (int) (tour.tourSize() * RANDOM.nextDouble());
 
                 Location city1 = tour.getLocation(tourPos1);
@@ -92,6 +92,7 @@ public class GeneticAlgorithm {
         }
     }
 
+    // tournament selection: pick TOURNAMENT_SIZE random individuals and return the fittest one
     private RouteDNA tournamentSelection(Population pop) {
         Population tournament = new Population(TOURNAMENT_SIZE, false, null);
         for (int i = 0; i < TOURNAMENT_SIZE; i++) {

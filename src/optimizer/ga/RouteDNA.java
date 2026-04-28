@@ -28,15 +28,16 @@ public class RouteDNA {
 
     public void setLocation(int index, Location location) {
         tour.set(index, location);
+        // invalidate cached values so they're recalculated on next access
         fitness = 0;
         distance = 0;
     }
 
-    // Total distance for this tour split across all trucks. Each truck drives: Hub → its segment → Hub.
+    // total distance when the tour is split evenly across trucks, each making a hub → segment → hub trip
     public double getDistance(Location depot, int numberOfTrucks, DistanceMatrix matrix) {
         if (distance == 0) {
             double totalDist = 0;
-            int stopsPerTruck = (int) Math.ceil((double)tour.size() / numberOfTrucks);
+            int stopsPerTruck = (int) Math.ceil((double) tour.size() / numberOfTrucks);
 
             for (int t = 0; t < numberOfTrucks; t++) {
                 int start = t * stopsPerTruck;
@@ -57,7 +58,7 @@ public class RouteDNA {
         return distance;
     }
 
-    // Fitness = 1/distance: higher fitness means shorter total route.
+    // fitness is the inverse of distance — shorter routes score higher
     public double getFitness(Location depot, int trucks, DistanceMatrix matrix) {
         if (fitness == 0) {
             fitness = 1 / getDistance(depot, trucks, matrix);
@@ -83,7 +84,7 @@ public class RouteDNA {
     }
 
     public void printTruckRoutes(Location depot, int numberOfTrucks, DistanceMatrix matrix) {
-        int stopsPerTruck = (int) Math.ceil((double)tour.size() / numberOfTrucks);
+        int stopsPerTruck = (int) Math.ceil((double) tour.size() / numberOfTrucks);
 
         System.out.println("\n=== DETAILED TRUCK ROUTES ===");
         for (int t = 0; t < numberOfTrucks; t++) {

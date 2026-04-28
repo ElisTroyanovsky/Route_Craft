@@ -12,7 +12,7 @@ public class PersistentCacheManager {
     private static final Gson gson = new Gson();
 
     static {
-        loadCache();
+        loadCache(); // load existing entries from disk on first class use
     }
 
     private static void loadCache() {
@@ -43,7 +43,7 @@ public class PersistentCacheManager {
     }
 
     private static String makeKey(double lat1, double lng1, double lat2, double lng2) {
-        // Round to 5 decimal places to avoid duplicates due to precision errors
+        // 5 decimal places (~1 m precision) prevents duplicate keys from floating-point noise
         return String.format("%.5f,%.5f:%.5f,%.5f", lat1, lng1, lat2, lng2);
     }
 }

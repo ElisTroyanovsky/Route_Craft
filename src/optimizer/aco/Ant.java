@@ -18,14 +18,13 @@ public class Ant {
         this.visited = new boolean[numberOfLocations];
     }
 
-    // Ant builds a full tour starting and ending at the Hub
+    // builds a complete tour by visiting every delivery point exactly once
     public void visitTour(Location hub, List<Location> allLocations, DistanceMatrix matrix, double[][] pheromones, double alpha, double beta) {
         tour.clear();
         for (int i = 0; i < numberOfLocations; i++) visited[i] = false;
 
         Location currentLocation = hub;
 
-        // Visit all delivery points
         for (int i = 0; i < allLocations.size(); i++) {
             Location nextLocation = selectNextLocation(currentLocation, allLocations, matrix, pheromones, alpha, beta);
             tour.add(nextLocation);
@@ -34,27 +33,24 @@ public class Ant {
         }
     }
 
-    // Probability-based selection of the next city
+    // picks the next unvisited location using weighted probabilities
     private Location selectNextLocation(Location current, List<Location> allLocations, DistanceMatrix matrix, double[][] pheromones, double alpha, double beta) {
         double[] probabilities = new double[allLocations.size()];
         double sum = 0.0;
 
         int fromIdx = getIndex(current, allLocations);
 
-        // Calculate probability for each unvisited location
-
-        // This is the Transition Probability formula: it combines local desirability (1/distance) with global memory (pheromone levels) to determine the likelihood of choosing a specific next city.
+        // transition probability: pheromone^alpha * (1/distance)^beta
+        // combines memory (pheromone trail) with local desirability (shorter = better)
         for (int i = 0; i < allLocations.size(); i++) {
             if (!visited[i]) {
                 double distance = matrix.getDistance(current, allLocations.get(i));
-                // Pheromone influence (alpha) and Distance influence (beta)
-                // Math.pow(pheromone, alpha) * Math.pow(1/distance, beta)
                 probabilities[i] = Math.pow(pheromones[fromIdx][i], alpha) * Math.pow(1.0 / distance, beta);
                 sum += probabilities[i];
             }
         }
 
-        // Roulette wheel selection
+        // roulette-wheel selection: spin a random value and accumulate until we land on a slot
         double randomValue = RANDOM.nextDouble() * sum;
         double currentSum = 0.0;
 
@@ -67,8 +63,8 @@ public class Ant {
             }
         }
 
-        // Fallback: all probabilities were 0 (e.g. unreachable points with distance=999999).
-        // Pick the first unvisited location to avoid returning null.
+        // fallback: all probabilities were 0 (e.g. unreachable points with distance=999999).
+        // pick the first unvisited location to avoid returning null.
         for (int i = 0; i < allLocations.size(); i++) {
             if (!visited[i]) return allLocations.get(i);
         }
@@ -76,7 +72,7 @@ public class Ant {
     }
 
     private int getIndex(Location loc, List<Location> allLocations) {
-        // Hub is not in allLocations, so it gets the reserved last index in the pheromone matrix
+        // hub is not in allLocations so it uses the last reserved index in the pheromone matrix
         if (loc.getId().equals("HUB")) return allLocations.size();
         return allLocations.indexOf(loc);
     }
@@ -85,7 +81,7 @@ public class Ant {
         return tour;
     }
 
-    // Total distance of the ant's route (including return to hub)
+    // calculates total distance when the tour is split across trucks (each truck: hub → segment → hub)
     public double calculateTourDistance(Location hub, DistanceMatrix matrix, int trucks) {
         double dist = 0;
         int stopsPerTruck = (int) Math.ceil((double) tour.size() / trucks);
