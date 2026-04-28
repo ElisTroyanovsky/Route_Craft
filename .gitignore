@@ -30,8 +30,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
-
-# Claude Code system files
 .claude/
 
 # Environment variables
