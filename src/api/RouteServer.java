@@ -6,7 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import domain.Location;
 import optimizer.GreedySolver;
-import optimizer.TwoOptOptimizer; // Don't forget that this class must be created
+import optimizer.TwoOptOptimizer;
 import optimizer.aco.AntColonyOptimizer;
 import optimizer.ga.GeneticAlgorithm;
 import optimizer.ga.Population;

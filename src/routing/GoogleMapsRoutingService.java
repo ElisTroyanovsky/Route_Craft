@@ -86,7 +86,7 @@ public class GoogleMapsRoutingService {
                     conn.setRequestMethod("GET");
 
                     if (conn.getResponseCode() == 200) {
-                        Scanner scanner = new Scanner(url.openStream(), "UTF-8").useDelimiter("\\A");
+                        Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
                         String jsonResponse = scanner.hasNext() ? scanner.next() : "";
                         scanner.close();
 

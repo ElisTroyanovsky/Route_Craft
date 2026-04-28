@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Random;
 
 public class Ant {
+    private static final Random RANDOM = new Random();
+
     private final List<Location> tour = new ArrayList<>();
     private final boolean[] visited;
     private final int numberOfLocations;
@@ -53,8 +55,7 @@ public class Ant {
         }
 
         // Roulette wheel selection
-        Random random = new Random();
-        double randomValue = random.nextDouble() * sum;
+        double randomValue = RANDOM.nextDouble() * sum;
         double currentSum = 0.0;
 
         for (int i = 0; i < allLocations.size(); i++) {
@@ -65,12 +66,18 @@ public class Ant {
                 }
             }
         }
+
+        // Fallback: all probabilities were 0 (e.g. unreachable points with distance=999999).
+        // Pick the first unvisited location to avoid returning null.
+        for (int i = 0; i < allLocations.size(); i++) {
+            if (!visited[i]) return allLocations.get(i);
+        }
         return null;
     }
 
     private int getIndex(Location loc, List<Location> allLocations) {
-        // Special case for Hub (let's assume it's index 0 if we passed it in the list)
-        if (loc.getId().equals("HUB")) return allLocations.size(); // We'll handle this in the Matrix
+        // Hub is not in allLocations, so it gets the reserved last index in the pheromone matrix
+        if (loc.getId().equals("HUB")) return allLocations.size();
         return allLocations.indexOf(loc);
     }
 
