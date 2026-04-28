@@ -337,9 +337,9 @@
         const logList = document.getElementById('log-list');
         logCont.style.display = 'block';
         logList.innerHTML = '';
-        data.log.forEach(line => {
+        data.log.forEach((line, i) => {
             const isHighlight = line.includes("Baseline") || line.includes("Cycle 15") || line.includes("FINAL");
-            logList.innerHTML += `<li class="log-line ${isHighlight ? 'log-record' : ''}">[${new Date().toLocaleTimeString()}] ${line}</li>`;
+            logList.innerHTML += `<li class="log-line ${isHighlight ? 'log-record' : ''}">[${String(i + 1).padStart(2, '0')}] ${line}</li>`;
         });
     }
 

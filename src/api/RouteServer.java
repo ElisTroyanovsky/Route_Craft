@@ -14,10 +14,12 @@ import optimizer.ga.RouteDNA;
 import routing.GoogleMapsRoutingService;
 import routing.MatrixCache;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,11 +29,43 @@ public class RouteServer {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
             server.createContext("/api/optimize", new OptimizeHandler());
+            server.createContext("/", new StaticFileHandler());
             server.setExecutor(null);
             server.start();
-            System.out.println("Server is running on http://localhost:63342/Route_Craft/index.html?_ijt=gomvlrdskf5qvb1kc291hi17v8&_ij_reload=RELOAD_ON_SAVE");
+            System.out.println("✅ Server is running → http://localhost:8080");
         } catch (IOException e) {
             System.err.println("Failed to start server: " + e.getMessage());
+        }
+    }
+
+    static class StaticFileHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            String path = exchange.getRequestURI().getPath();
+            String fileName = path.equals("/") ? "index.html" : path.replaceFirst("^/", "");
+
+            if (!fileName.equals("index.html") && !fileName.equals("config.js")) {
+                exchange.sendResponseHeaders(404, -1);
+                exchange.close();
+                return;
+            }
+
+            File file = new File(fileName);
+            if (!file.exists()) {
+                String msg = "File not found: " + fileName;
+                exchange.sendResponseHeaders(404, msg.length());
+                exchange.getResponseBody().write(msg.getBytes());
+                exchange.close();
+                return;
+            }
+
+            String contentType = fileName.endsWith(".html") ? "text/html; charset=UTF-8" : "application/javascript";
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            exchange.getResponseHeaders().set("Content-Type", contentType);
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var os = exchange.getResponseBody()) {
+                os.write(bytes);
+            }
         }
     }
 
@@ -227,10 +261,13 @@ public class RouteServer {
         }
 
         private void sendErrorResponse(HttpExchange exchange, String msg) throws IOException {
-            String error = "{\"status\": \"error\", \"message\": \"" + msg + "\"}";
-            exchange.sendResponseHeaders(500, error.getBytes().length);
-            exchange.getResponseBody().write(error.getBytes());
-            exchange.getResponseBody().close();
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+            byte[] error = ("{\"status\": \"error\", \"message\": \"" + msg + "\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(500, error.length);
+            try (var os = exchange.getResponseBody()) {
+                os.write(error);
+            }
         }
     }
 }
