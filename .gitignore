@@ -31,6 +31,9 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+# Claude Code system files
+.claude/
+
 # Environment variables
 .env
 .env.*
@@ -47,3 +50,4 @@ config.js
 
 matrix_cache.json
 sources.txt
+
