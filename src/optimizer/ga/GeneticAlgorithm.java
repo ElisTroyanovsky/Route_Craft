@@ -4,6 +4,7 @@ import domain.Location;
 import routing.DistanceMatrix;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class GeneticAlgorithm {
 
@@ -12,6 +13,7 @@ public class GeneticAlgorithm {
     private static final double MUTATION_RATE = 0.10;
     private static final int TOURNAMENT_SIZE = 3;
     private static final boolean ELITISM = true;
+    private static final Random RANDOM = new Random();
 
     private Location depot;
     private int numberOfTrucks;
@@ -53,8 +55,8 @@ public class GeneticAlgorithm {
             childTour.add(null);
         }
 
-        int startPos = (int) (Math.random() * parent1.tourSize());
-        int endPos = (int) (Math.random() * parent1.tourSize());
+        int startPos = (int) (RANDOM.nextDouble() * parent1.tourSize());
+        int endPos = (int) (RANDOM.nextDouble() * parent1.tourSize());
 
         for (int i = 0; i < parent1.tourSize(); i++) {
             if (startPos < endPos && i > startPos && i < endPos) {
@@ -82,8 +84,8 @@ public class GeneticAlgorithm {
 
     private void mutate(RouteDNA tour) {
         for(int tourPos1=0; tourPos1 < tour.tourSize(); tourPos1++){
-            if(Math.random() < MUTATION_RATE){
-                int tourPos2 = (int) (tour.tourSize() * Math.random());
+            if(RANDOM.nextDouble() < MUTATION_RATE){
+                int tourPos2 = (int) (tour.tourSize() * RANDOM.nextDouble());
 
                 Location city1 = tour.getLocation(tourPos1);
                 Location city2 = tour.getLocation(tourPos2);
@@ -97,7 +99,7 @@ public class GeneticAlgorithm {
     private RouteDNA tournamentSelection(Population pop) {
         Population tournament = new Population(TOURNAMENT_SIZE, false, null);
         for (int i = 0; i < TOURNAMENT_SIZE; i++) {
-            int randomId = (int) (Math.random() * pop.populationSize());
+            int randomId = (int) (RANDOM.nextDouble() * pop.populationSize());
             tournament.saveTour(i, pop.getTour(randomId));
         }
         return tournament.getFittest(depot, numberOfTrucks, matrix); // Pass the matrix

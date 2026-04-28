@@ -164,6 +164,7 @@
     // GLOBAL VARIABLES: State management
     let map, geocoder, autocomplete, trafficLayer;
     let mode = null; // null, 'hub', or 'points'
+    let pointIdCounter = 0; // monotonically increasing — safe after deletions
     let hubData = null;
     let hubMarker = null;
     let pointsData = [];
@@ -278,7 +279,7 @@
         } else {
             const m = new google.maps.Marker({ position: latLng, map: map, label: (pointsData.length + 1).toString(), icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' });
             pointMarkers.push(m);
-            pointsData.push({ id: "P" + pointsData.length, lat: latLng.lat().toFixed(6), lng: latLng.lng().toFixed(6), address: address });
+            pointsData.push({ id: "P" + pointIdCounter++, lat: latLng.lat().toFixed(6), lng: latLng.lng().toFixed(6), address: address });
         }
         mode = null;
         setMode(null);
@@ -337,9 +338,9 @@
         const logList = document.getElementById('log-list');
         logCont.style.display = 'block';
         logList.innerHTML = '';
-        data.log.forEach(line => {
+        data.log.forEach((line, i) => {
             const isHighlight = line.includes("Baseline") || line.includes("Cycle 15") || line.includes("FINAL");
-            logList.innerHTML += `<li class="log-line ${isHighlight ? 'log-record' : ''}">[${new Date().toLocaleTimeString()}] ${line}</li>`;
+            logList.innerHTML += `<li class="log-line ${isHighlight ? 'log-record' : ''}">[${String(i + 1).padStart(2, '0')}] ${line}</li>`;
         });
     }
 
