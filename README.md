@@ -403,7 +403,7 @@ See `Route Craft.docx` / `Route Craft.pdf` in the parent directory.
 
 ## Author
 
-**Elis Troyanovsky** — Bari WAN TEC, Class of 13 (Software Engineering)
+**Elis Troyanovsky** — WAN TEC beri, Class of 13 (Software Engineering)
 Final project, 2025–2026.
 
 Supervisor: Yuda Or.
