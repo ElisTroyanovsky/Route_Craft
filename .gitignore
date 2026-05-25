@@ -30,7 +30,7 @@ bin/
 
 ### Mac OS ###
 .DS_Store
-.claude/
+
 
 # Environment variables
 .env

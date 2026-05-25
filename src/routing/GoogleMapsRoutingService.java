@@ -29,7 +29,7 @@ public class GoogleMapsRoutingService {
             return null;
         }
     }
-
+/// makes the whole matrix with data
     public static MatrixCache fetchDistanceMatrix(Location hub, List<Location> points) {
         MatrixCache cache = new MatrixCache();
         String apiKey = getApiKey();
@@ -109,7 +109,7 @@ public class GoogleMapsRoutingService {
         System.out.println("✅ Matrix is ready (caching used)");
         return cache;
     }
-
+/// transforms location to the google API format
     private static String buildCoordsString(List<Location> chunk) throws Exception {
         StringBuilder coords = new StringBuilder();
         for (int i = 0; i < chunk.size(); i++) {
@@ -118,7 +118,7 @@ public class GoogleMapsRoutingService {
         }
         return URLEncoder.encode(coords.toString(), StandardCharsets.UTF_8.toString());
     }
-
+/// parses the API JSON responce and saves it to cache
     private static void parseAndSaveChunk(String jsonResponse, List<Location> origins, List<Location> destinations, MatrixCache cache) {
         String[] rows = jsonResponse.split("\"elements\"\\s*:\\s*\\[");
         for (int i = 1; i < rows.length; i++) {
